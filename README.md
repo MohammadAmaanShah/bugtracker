@@ -4,11 +4,14 @@ Full-stack bug display app: report bugs with **title**, **in role**, **descripti
 
 Features:
 - Search by title / role / description
-- Filter by status (open / in progress / fixed / closed)
+- Filter by status (in progress / fixed)
 - Edit bugs (including screenshot replacement/removal)
 - Status changes record **who** made them
 - Full edit history on each card (field, old → new value, editor, timestamp)
-- "Reported by" name is remembered in localStorage
+- Activity log tracks **who** created, updated the status of, or deleted each bug
+- "Reported by" is chosen from the list of verified (admin-approved) users
+- Login / signup uses a **username** (no phone number)
+- Separate pages: Bugs, Report Bug, Activity, and Admin (user verification)
 
 - Frontend: React (Vite)
 - Backend: Node + Express
@@ -39,10 +42,23 @@ npm run dev
 API runs on `http://localhost:5001`
 
 - `GET /api/bugs` — list bugs (`?q=` search, `?status=` filter)
-- `POST /api/bugs` — create a bug (multipart form: `title`, `role`, `description`, optional `screenshot`, optional `reportedBy`)
+- `POST /api/bugs` — create a bug (multipart form: `title`, `role`, `description`, `reportedBy`, optional `screenshot`)
 - `PUT /api/bugs/:id` — edit a bug (multipart; pass `editedBy` to record who changed it; pass `removeScreenshot=true` to delete the image)
 - `DELETE /api/bugs/:id` — delete a bug
+- `GET /api/actions` — activity log (who created / changed status of / deleted bugs)
+- `GET /api/users/verified` — verified (approved) users for the "Reported by" dropdown
 - `/uploads` — serves uploaded screenshots
+
+Auth endpoints:
+
+- `POST /api/auth/signup` — `{ name, username, password }`
+- `POST /api/auth/login` — `{ username, password }`
+- `GET /api/auth/me` — current user
+
+Admin endpoints:
+
+- `GET /api/admin/users` — list users
+- `PATCH /api/admin/users/:id` — approve / change role
 
 ### 2. Frontend
 

@@ -10,7 +10,7 @@ function publicUser(u) {
   return {
     id: u._id,
     name: u.name,
-    phone: u.phone,
+    username: u.username,
     role: u.role,
     isVerified: u.isVerified,
     isApproved: u.isApproved,
@@ -20,24 +20,24 @@ function publicUser(u) {
 
 router.post("/signup", async (req, res) => {
   try {
-    const { name, phone, password } = req.body;
-    if (!name || !phone || !password) {
+    const { name, username, password } = req.body;
+    if (!name || !username || !password) {
       return res
         .status(400)
-        .json({ message: "Name, phone number and password are required" });
+        .json({ message: "Name, username and password are required" });
     }
     if (String(password).length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
-    const normalizedPhone = String(phone).trim();
-    const exists = await User.findOne({ phone: normalizedPhone });
+    const normalizedUsername = String(username).trim().toLowerCase();
+    const exists = await User.findOne({ username: normalizedUsername });
     if (exists) {
-      return res.status(409).json({ message: "An account with this phone number already exists" });
+      return res.status(409).json({ message: "An account with this username already exists" });
     }
 
     const user = await User.create({
       name: String(name).trim(),
-      phone: normalizedPhone,
+      username: normalizedUsername,
       passwordHash: hashValue(password),
       isVerified: true,
     });
@@ -50,10 +50,10 @@ router.post("/signup", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    const user = await User.findOne({ phone: String(phone || "").trim() });
+    const { username, password } = req.body;
+    const user = await User.findOne({ username: String(username || "").trim().toLowerCase() });
     if (!user || !verifyValue(String(password || ""), user.passwordHash)) {
-      return res.status(401).json({ message: "Invalid phone number or password" });
+      return res.status(401).json({ message: "Invalid username or password" });
     }
 
     if (!user.isApproved) {

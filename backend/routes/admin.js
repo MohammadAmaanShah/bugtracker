@@ -9,7 +9,7 @@ router.use(requireAuth, requireAdmin);
 router.get("/users", async (req, res) => {
   const users = await User.find({})
     .sort({ createdAt: -1 })
-    .select("name phone role isVerified isApproved createdAt");
+    .select("name username role isVerified isApproved createdAt");
   res.json(users);
 });
 

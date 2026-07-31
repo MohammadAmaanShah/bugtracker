@@ -1,5 +1,6 @@
 import express from "express";
 import Bug from "../models/Bug.js";
+import Action from "../models/Action.js";
 import { upload } from "../middleware/upload.js";
 import { requireAuth } from "../middleware/auth.js";
 import path from "path";
@@ -15,6 +16,8 @@ const removeFile = (screenshotPath) => {
   const filePath = path.join(uploadDir, path.basename(screenshotPath));
   fs.unlink(filePath, () => { });
 };
+
+const actorName = (user) => user.name || user.username || "Unknown";
 
 router.get("/", async (req, res) => {
   try {
@@ -39,14 +42,24 @@ router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
   try {
     const { title, role, description } = req.body;
     const screenshot = req.file ? `/uploads/${req.file.filename}` : null;
+    const reportedBy = (req.body.reportedBy || "").trim() || actorName(req.user);
 
     const bug = await Bug.create({
       title,
       role,
       description,
       screenshot,
-      reportedBy: req.user.name,
+      reportedBy,
     });
+
+    await Action.create({
+      action: "created",
+      actor: actorName(req.user),
+      bugId: bug._id,
+      bugTitle: bug.title,
+      newValue: statusLabel(bug.status),
+    });
+
     res.status(201).json(bug);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -58,8 +71,8 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     const bug = await Bug.findById(req.params.id);
     if (!bug) return res.status(404).json({ message: "Bug not found" });
 
-    const { title, role, description, status, editedBy } = req.body;
-    const editor = (editedBy || "").trim() || req.user.name || "Unknown";
+    const { title, role, description, status, reportedBy, editedBy } = req.body;
+    const editor = (editedBy || "").trim() || actorName(req.user);
     const changes = [];
 
     const textFields = [
@@ -67,6 +80,7 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
       { key: "role", old: bug.role, next: role },
       { key: "description", old: bug.description, next: description },
       { key: "status", old: bug.status, next: status },
+      { key: "reportedBy", old: bug.reportedBy, next: reportedBy },
     ];
 
     for (const { key, old: oldVal, next: newVal } of textFields) {
@@ -97,9 +111,22 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     if (role !== undefined) bug.role = role;
     if (description !== undefined) bug.description = description;
     if (status !== undefined) bug.status = status;
+    if (reportedBy !== undefined) bug.reportedBy = String(reportedBy).trim();
 
     for (const change of changes) {
       bug.editHistory.push({ editedBy: editor, ...change });
+    }
+
+    const statusChange = changes.find((c) => c.field === "status");
+    if (statusChange) {
+      await Action.create({
+        action: "status",
+        actor: editor,
+        bugId: bug._id,
+        bugTitle: bug.title,
+        oldValue: statusLabel(statusChange.oldValue),
+        newValue: statusLabel(statusChange.newValue),
+      });
     }
 
     await bug.save();
@@ -114,6 +141,13 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const bug = await Bug.findById(req.params.id);
     if (!bug) return res.status(404).json({ message: "Bug not found" });
 
+    await Action.create({
+      action: "deleted",
+      actor: actorName(req.user),
+      bugId: bug._id,
+      bugTitle: bug.title,
+    });
+
     removeFile(bug.screenshot);
 
     await bug.deleteOne();
@@ -122,5 +156,11 @@ router.delete("/:id", requireAuth, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+function statusLabel(value) {
+  if (value === "in_progress") return "In Progress";
+  if (value === "fixed") return "Fixed";
+  return value;
+}
 
 export default router;

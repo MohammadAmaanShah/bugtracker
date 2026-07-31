@@ -54,8 +54,8 @@ const bugSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["open", "in_progress", "fixed", "closed"],
-      default: "open",
+      enum: ["in_progress", "fixed"],
+      default: "in_progress",
     },
     editHistory: {
       type: [editEntrySchema],

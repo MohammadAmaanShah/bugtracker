@@ -7,7 +7,10 @@ import { fileURLToPath } from "url";
 import bugsRouter from "./routes/bugs.js";
 import authRouter from "./routes/auth.js";
 import adminRouter from "./routes/admin.js";
+import actionsRouter from "./routes/actions.js";
+import usersRouter from "./routes/users.js";
 import User from "./models/User.js";
+import Bug from "./models/Bug.js";
 import { hashValue } from "./utils/password.js";
 
 
@@ -25,6 +28,8 @@ app.get("/", (req, res) => res.json({ message: "Bug Tracker API" }));
 app.use("/api/bugs", bugsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/actions", actionsRouter);
+app.use("/api/users", usersRouter);
 
 const PORT = process.env.PORT;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -32,24 +37,49 @@ const MONGODB_URI = process.env.MONGODB_URI;
 async function seedAdmin() {
   const exists = await User.findOne({ role: "admin" });
   if (exists) return;
-  const phone = process.env.ADMIN_PHONE || "9999999999";
+  const username = process.env.ADMIN_USERNAME || "admin";
   const password = process.env.ADMIN_PASSWORD || "admin123";
   await User.create({
     name: "Admin",
-    phone,
+    username,
     passwordHash: hashValue(password),
     role: "admin",
     isVerified: true,
     isApproved: true,
   });
-  console.log(`Seeded admin account -> phone: ${phone}  password: ${password}`);
+  console.log(`Seeded admin account -> username: ${username}  password: ${password}`);
 }
 
+async function migrateLegacyData() {
+  const users = await User.find({ username: { $in: [null, "", undefined] } });
+  for (const user of users) {
+    const base =
+      String(user.name || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "") || "user";
+    let username = base;
+    let suffix = 2;
+    while (await User.exists({ username, _id: { $ne: user._id } })) {
+      username = `${base}${suffix++}`;
+    }
+    user.username = username;
+    await user.save();
+    console.log(`Migrated user '${user.name}' -> username: ${username}`);
+  }
 
+  const statusMap = { open: "in_progress", closed: "fixed" };
+  for (const [oldStatus, newStatus] of Object.entries(statusMap)) {
+    const res = await Bug.updateMany({ status: oldStatus }, { $set: { status: newStatus } });
+    if (res.modifiedCount > 0) {
+      console.log(`Migrated ${res.modifiedCount} bug(s) status '${oldStatus}' -> '${newStatus}'`);
+    }
+  }
+}
 
 mongoose
   .connect(MONGODB_URI)
   .then(async () => {
+    await migrateLegacyData();
     await seedAdmin();
     app.listen(PORT, () =>
       console.log(`API running on http://localhost:${PORT}`)

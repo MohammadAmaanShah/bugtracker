@@ -1,15 +1,29 @@
-import { useState, useRef } from "react";
-import { createBug } from "../api.js";
+import { useState, useRef, useEffect } from "react";
+import { createBug, fetchVerifiedUsers } from "../api.js";
 
 export default function BugForm({ userName, onCreated }) {
   const [title, setTitle] = useState("");
   const [role, setRole] = useState("");
   const [description, setDescription] = useState("");
+  const [reportedBy, setReportedBy] = useState("");
+  const [users, setUsers] = useState([]);
   const [screenshot, setScreenshot] = useState(null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const fileRef = useRef(null);
+  const submittedTimer = useRef(null);
+
+  useEffect(() => {
+    fetchVerifiedUsers()
+      .then((list) => {
+        setUsers(list);
+        if (!reportedBy && userName) setReportedBy(userName);
+      })
+      .catch(() => {});
+    return () => clearTimeout(submittedTimer.current);
+  }, [userName]);
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -21,12 +35,14 @@ export default function BugForm({ userName, onCreated }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    setSubmitted(false);
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("role", role);
       formData.append("description", description);
+      formData.append("reportedBy", reportedBy);
       if (screenshot) formData.append("screenshot", screenshot);
 
       const bug = await createBug(formData);
@@ -36,6 +52,8 @@ export default function BugForm({ userName, onCreated }) {
       setScreenshot(null);
       setPreview(null);
       if (fileRef.current) fileRef.current.value = "";
+      setSubmitted(true);
+      submittedTimer.current = setTimeout(() => setSubmitted(false), 4000);
       onCreated(bug);
     } catch (err) {
       setError(err.message);
@@ -71,6 +89,22 @@ export default function BugForm({ userName, onCreated }) {
       </label>
 
       <label>
+        Reported by
+        <select
+          value={reportedBy}
+          onChange={(e) => setReportedBy(e.target.value)}
+          required
+        >
+          <option value="">Select a user</option>
+          {users.map((u) => (
+            <option key={u._id} value={u.name}>
+              {u.name} (@{u.username})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
         Description
         <textarea
           rows="4"
@@ -80,8 +114,6 @@ export default function BugForm({ userName, onCreated }) {
           required
         />
       </label>
-
-      <p className="muted reporting-as">Reporting as {userName || "you"}</p>
 
       <label>
         Screenshot
@@ -100,6 +132,10 @@ export default function BugForm({ userName, onCreated }) {
       )}
 
       {error && <p className="error">{error}</p>}
+
+      {submitted && (
+        <p className="success">Bug submitted successfully!</p>
+      )}
 
       <button type="submit" className="btn-primary" disabled={submitting}>
         {submitting ? "Submitting..." : "Submit bug"}

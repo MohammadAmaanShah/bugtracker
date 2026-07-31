@@ -1,27 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { fetchBugs, getToken, setToken, fetchMe } from "./api.js";
+import { useEffect, useState } from "react";
+import { getToken, setToken, fetchMe, fetchBugs } from "./api.js";
 import AuthPage from "./components/AuthPage.jsx";
-import AdminDashboard from "./components/AdminDashboard.jsx";
-import BugForm from "./components/BugForm.jsx";
-import BugCard from "./components/BugCard.jsx";
+import BugsPage from "./pages/BugsPage.jsx";
+import ReportBugPage from "./pages/ReportBugPage.jsx";
+import ActivityPage from "./pages/ActivityPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
 
-const STATUS_FILTERS = [
-  { value: "", label: "All" },
-  { value: "open", label: "Open" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "fixed", label: "Fixed" },
-  { value: "closed", label: "Closed" },
+const PAGES = [
+  { key: "bugs", label: "Bugs" },
+  { key: "report", label: "Report Bug" },
+  { key: "activity", label: "Activity" },
+  { key: "admin", label: "Admin", adminOnly: true },
 ];
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [page, setPage] = useState("bugs");
   const [bugs, setBugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const searchTimer = useRef(null);
 
   useEffect(() => {
     async function restore() {
@@ -43,27 +41,11 @@ export default function App() {
 
   useEffect(() => {
     if (user?.isApproved) loadBugs();
-  }, [statusFilter, user]);
+  }, [user]);
 
-  function handleSearch(value) {
-    setQ(value);
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      loadBugs({ q: value, status: statusFilter });
-    }, 250);
-  }
-
-  function handleStatusFilter(value) {
-    setStatusFilter(value);
-    loadBugs({ q, status: value });
-  }
-
-  async function loadBugs(overrides = {}) {
+  async function loadBugs() {
     try {
-      const data = await fetchBugs({
-        q: overrides.q ?? q,
-        status: overrides.status ?? statusFilter,
-      });
+      const data = await fetchBugs();
       setBugs(data);
     } catch (err) {
       setError(err.message);
@@ -76,19 +58,10 @@ export default function App() {
     setBugs((prev) => [bug, ...prev]);
   }
 
-  function handleUpdated(updated) {
-    setBugs((prev) =>
-      prev.map((b) => (b._id === updated._id ? updated : b))
-    );
-  }
-
-  function handleDeleted(id) {
-    setBugs((prev) => prev.filter((b) => b._id !== id));
-  }
-
   function handleAuthenticated({ token, user: nextUser }) {
     if (token) setToken(token);
     setUser(nextUser);
+    setPage("bugs");
   }
 
   function handleLogout() {
@@ -123,8 +96,8 @@ export default function App() {
         <div className="card pending-page">
           <h2>Awaiting admin approval</h2>
           <p>
-            Hi {user.name}, your phone number is verified. An admin needs to
-            approve your account before you can use the app.
+            Hi {user.name}, your username is verified. An admin needs to approve
+            your account before you can use the app.
           </p>
           <button type="button" className="btn-primary" onClick={handleLogout}>
             Log out
@@ -133,6 +106,10 @@ export default function App() {
       </div>
     );
   }
+
+  const visiblePages = PAGES.filter(
+    (p) => !p.adminOnly || user.role === "admin"
+  );
 
   return (
     <div className="page">
@@ -153,65 +130,39 @@ export default function App() {
             </button>
           </div>
         </div>
-        <p>Report, review, and track bugs with screenshots</p>
+        <nav className="page-nav">
+          {visiblePages.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className={`nav-link ${page === p.key ? "active" : ""}`}
+              onClick={() => setPage(p.key)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      {user.role === "admin" && (
-        <AdminDashboard currentUserId={user.id} />
-      )}
-
-      <main className="layout">
-        <aside>
-          <BugForm userName={user.name} onCreated={handleCreated} />
-        </aside>
-
-        <section>
-          <div className="toolbar">
-            <input
-              type="search"
-              className="search-input"
-              placeholder="Search by title, role, or description..."
-              value={q}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-            <div className="status-filters">
-              {STATUS_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  className={`filter-chip ${
-                    statusFilter === f.value ? "active" : ""
-                  }`}
-                  onClick={() => handleStatusFilter(f.value)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <h2 className="section-title">
-            Reported bugs <span className="count">{bugs.length}</span>
-          </h2>
-
-          {loading && <p className="muted">Loading bugs...</p>}
-          {error && <p className="error">{error}</p>}
-          {!loading && !error && bugs.length === 0 && (
-            <p className="muted">No bugs found.</p>
-          )}
-
-          <div className="bug-list">
-            {bugs.map((bug) => (
-              <BugCard
-                key={bug._id}
-                bug={bug}
-                userName={user.name}
-                onDeleted={handleDeleted}
-                onUpdated={handleUpdated}
-              />
-            ))}
-          </div>
-        </section>
+      <main>
+        {page === "bugs" && (
+          <BugsPage
+            bugs={bugs}
+            setBugs={setBugs}
+            loading={loading}
+            setLoading={setLoading}
+            error={error}
+            setError={setError}
+            userName={user.name}
+          />
+        )}
+        {page === "report" && (
+          <ReportBugPage userName={user.name} onCreated={handleCreated} />
+        )}
+        {page === "activity" && <ActivityPage />}
+        {page === "admin" && user.role === "admin" && (
+          <AdminPage currentUserId={user.id} />
+        )}
       </main>
     </div>
   );

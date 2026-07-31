@@ -45,7 +45,7 @@ export default function AdminDashboard({ currentUserId }) {
   return (
     <section className="admin-section">
       <div className="admin-head">
-        <h2>Admin dashboard</h2>
+        <h2>User verification</h2>
         <span className="muted">
           {pendingCount} pending · {users.length - pendingCount} approved
         </span>
@@ -63,7 +63,7 @@ export default function AdminDashboard({ currentUserId }) {
             <div className="user-row card" key={u._id}>
               <div className="user-main">
                 <strong>{u.name}</strong>
-                <span className="muted">{u.phone}</span>
+                <span className="muted">@{u.username}</span>
                 <span
                   className={`badge ${
                     u.role === "admin" ? "badge-admin" : "badge-user"

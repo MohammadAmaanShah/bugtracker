@@ -1,11 +1,9 @@
-import { useState, useRef } from "react";
-import { updateBug } from "../api.js";
+import { useState, useRef, useEffect } from "react";
+import { updateBug, fetchVerifiedUsers } from "../api.js";
 
 export const STATUSES = [
-  { value: "open", label: "Open" },
   { value: "in_progress", label: "In Progress" },
   { value: "fixed", label: "Fixed" },
-  { value: "closed", label: "Closed" },
 ];
 
 export function statusLabel(value) {
@@ -17,7 +15,9 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
   const [title, setTitle] = useState(bug.title);
   const [role, setRole] = useState(bug.role);
   const [description, setDescription] = useState(bug.description);
-  const [status, setStatus] = useState(bug.status || "open");
+  const [status, setStatus] = useState(bug.status || "in_progress");
+  const [reportedBy, setReportedBy] = useState(bug.reportedBy || "");
+  const [users, setUsers] = useState([]);
   const [editedBy, setEditedBy] = useState(userName || "");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -25,6 +25,12 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    fetchVerifiedUsers()
+      .then(setUsers)
+      .catch(() => {});
+  }, []);
 
   function handleFile(e) {
     const f = e.target.files[0];
@@ -44,6 +50,7 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
       formData.append("role", role);
       formData.append("description", description);
       formData.append("status", status);
+      formData.append("reportedBy", reportedBy);
       formData.append("editedBy", editedBy);
       if (file) formData.append("screenshot", file);
       if (removeScreenshot) formData.append("removeScreenshot", "true");
@@ -96,6 +103,22 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
             onChange={(e) => setDescription(e.target.value)}
             required
           />
+        </label>
+
+        <label>
+          Reported by
+          <select
+            value={reportedBy}
+            onChange={(e) => setReportedBy(e.target.value)}
+            required
+          >
+            <option value="">Select a user</option>
+            {users.map((u) => (
+              <option key={u._id} value={u.name}>
+                {u.name} (@{u.username})
+              </option>
+            ))}
+          </select>
         </label>
 
         <label>

@@ -60,24 +60,32 @@ export function deleteBug(id) {
   return request(`/bugs/${id}`, { method: "DELETE" });
 }
 
-export function signup({ name, phone, password }) {
+export function signup({ name, username, password }) {
   return request("/auth/signup", {
     method: "POST",
     auth: false,
-    body: { name, phone, password },
+    body: { name, username, password },
   });
 }
 
-export function login({ phone, password }) {
+export function login({ username, password }) {
   return request("/auth/login", {
     method: "POST",
     auth: false,
-    body: { phone, password },
+    body: { username, password },
   });
 }
 
 export function fetchMe() {
   return request("/auth/me");
+}
+
+export function fetchVerifiedUsers() {
+  return request("/users/verified");
+}
+
+export function fetchActions() {
+  return request("/actions");
 }
 
 export function fetchUsers() {

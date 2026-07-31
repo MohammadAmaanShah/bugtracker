@@ -53,6 +53,94 @@ body {
   margin-top: 6px;
 }
 
+/* ---------- Page navigation ---------- */
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.nav-link {
+  padding: 8px 18px;
+  border: 1px solid var(--tan);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.nav-link:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.nav-link.active {
+  background: var(--green-dark);
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+/* ---------- Report page ---------- */
+.report-page {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.report-page .bug-form {
+  position: static;
+}
+
+/* ---------- Activity page ---------- */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-row {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.activity-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.activity-actor {
+  color: var(--green-dark);
+}
+
+.activity-detail {
+  color: var(--brown);
+  font-size: 0.92rem;
+}
+
+.activity-detail em {
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .activity-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .layout {
   display: grid;
   grid-template-columns: 380px 1fr;
@@ -365,6 +453,62 @@ body {
   color: #fff;
 }
 
+/* ---------- Download bar ---------- */
+.download-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+}
+
+.download-label {
+  font-weight: 700;
+  color: var(--green-dark);
+  font-size: 0.9rem;
+}
+
+.download-format {
+  padding: 8px 10px;
+  border: 1px solid var(--tan);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--brown);
+  background: var(--bg);
+  outline: none;
+  cursor: pointer;
+}
+
+.download-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.download-actions .btn-mini {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.download-actions .btn-mini:hover:not(:disabled) {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+/* ---------- Success message ---------- */
+.success {
+  background: #3d6668;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
 .status-badge {
   font-size: 0.75rem;
   font-weight: 700;
@@ -373,20 +517,12 @@ body {
   color: #fff;
 }
 
-.status-open {
-  background: var(--gold);
-}
-
 .status-in_progress {
   background: var(--green);
 }
 
 .status-fixed {
   background: #3d6668;
-}
-
-.status-closed {
-  background: var(--muted);
 }
 
 .meta-line {

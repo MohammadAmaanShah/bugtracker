@@ -41,8 +41,7 @@ export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
     }
   }
 
-  async function handleStatusChange(e) {
-    const next = e.target.value;
+  async function setStatus(next) {
     if (next === bug.status) return;
     setStatusBusy(true);
     try {
@@ -58,12 +57,20 @@ export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
     }
   }
 
+  function handleStatusChange(e) {
+    setStatus(e.target.value);
+  }
+
+  function handleMarkFixed() {
+    setStatus("fixed");
+  }
+
   const history = bug.editHistory || [];
 
   return (
     <article className="card bug-card">
       <div className="bug-card-head">
-        <span className="role-tag">{bug.role}</span>
+        <span className="role-tag">(inRole) {bug.role}</span>
         <span className={`status-badge status-${bug.status}`}>
           {statusLabel(bug.status)}
         </span>
@@ -114,10 +121,8 @@ export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
             onChange={handleStatusChange}
             disabled={statusBusy}
           >
-            <option value="open">Open</option>
             <option value="in_progress">In Progress</option>
             <option value="fixed">Fixed</option>
-            <option value="closed">Closed</option>
           </select>
         </label>
       </div>

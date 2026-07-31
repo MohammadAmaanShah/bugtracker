@@ -4,7 +4,7 @@ import { signup, login } from "../api.js";
 export default function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pending, setPending] = useState(false);
@@ -17,15 +17,15 @@ export default function AuthPage({ onAuthenticated }) {
     setError("");
   }
 
-  async function doLogin(phoneToUse, passwordToUse) {
+  async function doLogin(usernameToUse, passwordToUse) {
     setBusy(true);
     setError("");
     try {
-      const res = await login({ phone: phoneToUse, password: passwordToUse });
+      const res = await login({ username: usernameToUse, password: passwordToUse });
       onAuthenticated({ token: res.token, user: res.user });
     } catch (err) {
       if (err.code === "PENDING_APPROVAL") {
-        setPhone(phoneToUse);
+        setUsername(usernameToUse);
         setPassword(passwordToUse);
         setPending(true);
       } else {
@@ -45,10 +45,10 @@ export default function AuthPage({ onAuthenticated }) {
         if (password !== confirm) {
           throw new Error("Passwords do not match");
         }
-        await signup({ name, phone, password });
-        await doLogin(phone, password);
+        await signup({ name, username, password });
+        await doLogin(username, password);
       } else {
-        await doLogin(phone, password);
+        await doLogin(username, password);
       }
     } catch (err) {
       setError(err.message);
@@ -67,15 +67,15 @@ export default function AuthPage({ onAuthenticated }) {
         <div className="card pending-page">
           <h2>Awaiting approval</h2>
           <p>
-            Your account ({phone}) is registered, but an admin still needs to
-            approve it before you can use the app. Check back later.
+            Your account ({username}) is registered, but an admin still needs
+            to approve it before you can use the app. Check back later.
           </p>
           {error && <p className="error">{error}</p>}
           <button
             type="button"
             className="btn-primary"
             disabled={busy}
-            onClick={() => doLogin(phone, password)}
+            onClick={() => doLogin(username, password)}
           >
             {busy ? "Checking..." : "Check approval status"}
           </button>
@@ -134,12 +134,13 @@ export default function AuthPage({ onAuthenticated }) {
         )}
 
         <label>
-          Phone number
+          Username
           <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. 9999999999"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. john_doe"
+            minLength={3}
             required
           />
         </label>

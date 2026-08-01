@@ -1,4 +1,4 @@
-export const API_URL = "https://bugtracker-3kyf.onrender.com";
+export const API_URL = "https://bugtracker-3kyf.onrender.com/api";
 
 // export const API_URL = "/api";
 

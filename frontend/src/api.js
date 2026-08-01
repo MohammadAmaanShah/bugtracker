@@ -1,6 +1,6 @@
-export const API_URL = "https://bugtracker-3kyf.onrender.com/api";
+// export const API_URL = "https://bugtracker-3kyf.onrender.com/api";
 
-// export const API_URL = "/api";
+export const API_URL = "/api";
 
 const TOKEN_KEY = "bugtracker.token";
 
@@ -92,6 +92,10 @@ export function fetchActions() {
 
 export function fetchUsers() {
   return request("/admin/users");
+}
+
+export function fetchPendingUserCount() {
+  return request("/admin/users/pending-count");
 }
 
 export function updateUser(id, patch) {

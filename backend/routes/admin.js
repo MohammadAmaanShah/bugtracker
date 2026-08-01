@@ -6,6 +6,15 @@ const router = express.Router();
 
 router.use(requireAuth, requireAdmin);
 
+router.get("/users/pending-count", async (req, res) => {
+  try {
+    const count = await User.countDocuments({ isApproved: false });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.get("/users", async (req, res) => {
   const users = await User.find({})
     .sort({ createdAt: -1 })

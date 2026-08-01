@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchUsers, updateUser, deleteUser } from "../api.js";
 
-export default function AdminDashboard({ currentUserId }) {
+export default function AdminDashboard({ currentUserId, onUsersChanged }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,6 +24,7 @@ export default function AdminDashboard({ currentUserId }) {
     try {
       await updateUser(user._id, { approved: value });
       await load();
+      onUsersChanged?.();
     } catch (err) {
       alert(err.message);
     }
@@ -36,6 +37,7 @@ export default function AdminDashboard({ currentUserId }) {
     try {
       await deleteUser(user._id);
       await load();
+      onUsersChanged?.();
     } catch (err) {
       alert(err.message);
     }

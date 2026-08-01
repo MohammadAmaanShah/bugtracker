@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { getToken, setToken, fetchMe, fetchBugs } from "./api.js";
+import {
+  getToken,
+  setToken,
+  fetchMe,
+  fetchBugs,
+  fetchPendingUserCount,
+} from "./api.js";
 import AuthPage from "./components/AuthPage.jsx";
 import BugsPage from "./pages/BugsPage.jsx";
 import ReportBugPage from "./pages/ReportBugPage.jsx";
@@ -20,6 +26,7 @@ export default function App() {
   const [bugs, setBugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     async function restore() {
@@ -53,6 +60,30 @@ export default function App() {
       setLoading(false);
     }
   }
+
+  async function loadPendingCount() {
+    if (user?.role !== "admin") return;
+    try {
+      const data = await fetchPendingUserCount();
+      setPendingCount(data.count ?? 0);
+    } catch {
+      setPendingCount(0);
+    }
+  }
+
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      setPendingCount(0);
+      return;
+    }
+    loadPendingCount();
+    const id = setInterval(loadPendingCount, 30000);
+    return () => clearInterval(id);
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === "admin" && page === "admin") loadPendingCount();
+  }, [page, user]);
 
   function handleCreated(bug) {
     setBugs((prev) => [bug, ...prev]);
@@ -139,6 +170,11 @@ export default function App() {
               onClick={() => setPage(p.key)}
             >
               {p.label}
+              {p.key === "admin" && pendingCount > 0 && (
+                <span className="nav-badge" title={`${pendingCount} pending signup${pendingCount === 1 ? "" : "s"}`}>
+                  {pendingCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -161,7 +197,7 @@ export default function App() {
         )}
         {page === "activity" && <ActivityPage isAdmin={user.role === "admin"} />}
         {page === "admin" && user.role === "admin" && (
-          <AdminPage currentUserId={user.id} />
+          <AdminPage currentUserId={user.id} onUsersChanged={loadPendingCount} />
         )}
       </main>
     </div>

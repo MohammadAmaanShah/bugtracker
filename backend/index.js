@@ -35,19 +35,39 @@ const PORT = process.env.PORT;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 async function seedAdmin() {
-  const exists = await User.findOne({ role: "admin" });
-  if (exists) return;
   const username = process.env.ADMIN_USERNAME || "admin";
   const password = process.env.ADMIN_PASSWORD || "admin123";
-  await User.create({
-    name: "Admin",
-    username,
-    passwordHash: hashValue(password),
-    role: "admin",
-    isVerified: true,
-    isApproved: true,
-  });
-  console.log(`Seeded admin account -> username: ${username}  password: ${password}`);
+  const passwordHash = hashValue(password);
+
+  const admin = await User.findOne({ role: "admin" });
+  if (admin) {
+    const taken = await User.exists({ username, _id: { $ne: admin._id } });
+    if (taken) {
+      console.warn(
+        `Admin username '${username}' is taken by another account; keeping existing admin username`
+      );
+    } else {
+      admin.username = username;
+    }
+    admin.name = "Admin";
+    admin.passwordHash = passwordHash;
+    admin.isVerified = true;
+    admin.isApproved = true;
+    await admin.save();
+    console.log(
+      `Synced admin account -> username: ${admin.username}  password: ${password}`
+    );
+  } else {
+    await User.create({
+      name: "Admin",
+      username,
+      passwordHash,
+      role: "admin",
+      isVerified: true,
+      isApproved: true,
+    });
+    console.log(`Seeded admin account -> username: ${username}  password: ${password}`);
+  }
 }
 
 async function migrateLegacyData() {

@@ -36,7 +36,6 @@ router.post("/signup", async (req, res) => {
     }
 
     const user = await User.create({
-      name: normalizedUsername,
       username: normalizedUsername,
       passwordHash: hashValue(password),
       isVerified: true,

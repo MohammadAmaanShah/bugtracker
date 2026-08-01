@@ -96,7 +96,7 @@ export default function App() {
         <div className="card pending-page">
           <h2>Awaiting admin approval</h2>
           <p>
-            Hi {user.name}, your username is verified. An admin needs to approve
+            Hi {user.name || user.username}, your username is verified. An admin needs to approve
             your account before you can use the app.
           </p>
           <button type="button" className="btn-primary" onClick={handleLogout}>
@@ -117,7 +117,7 @@ export default function App() {
         <div className="topbar">
           <h1>Bug Tracker</h1>
           <div className="user-chip">
-            <span className="user-name">{user.name}</span>
+            <span className="user-name">{user.name || user.username}</span>
             <span
               className={`badge ${
                 user.role === "admin" ? "badge-admin" : "badge-user"
@@ -153,11 +153,11 @@ export default function App() {
             setLoading={setLoading}
             error={error}
             setError={setError}
-            userName={user.name}
+            userName={user.name || user.username}
           />
         )}
         {page === "report" && (
-          <ReportBugPage userName={user.name} onCreated={handleCreated} />
+          <ReportBugPage userName={user.name || user.username} onCreated={handleCreated} />
         )}
         {page === "activity" && <ActivityPage />}
         {page === "admin" && user.role === "admin" && (

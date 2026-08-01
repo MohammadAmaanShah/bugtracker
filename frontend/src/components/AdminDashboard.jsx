@@ -62,7 +62,7 @@ export default function AdminDashboard({ currentUserId }) {
           return (
             <div className="user-row card" key={u._id}>
               <div className="user-main">
-                <strong>{u.name}</strong>
+                <strong>{u.name || u.username}</strong>
                 <span className="muted">@{u.username}</span>
                 <span
                   className={`badge ${

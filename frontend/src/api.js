@@ -89,6 +89,13 @@ export function fetchActions() {
   return request("/actions");
 }
 
+export function deleteActions({ from = "", to = "" } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return request(`/actions?${params.toString()}`, { method: "DELETE" });
+}
+
 export function fetchUsers() {
   return request("/admin/users");
 }

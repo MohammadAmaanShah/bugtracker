@@ -1,4 +1,4 @@
-export const API_URL = process.env.API_URL;
+export const API_URL = import.meta.env.VITE_API_URL;
 
 
 const TOKEN_KEY = "bugtracker.token";
@@ -100,6 +100,14 @@ export function fetchUsers() {
   return request("/admin/users");
 }
 
+export function fetchPendingUserCount() {
+  return request("/admin/users/pending-count");
+}
+
 export function updateUser(id, patch) {
   return request(`/admin/users/${id}`, { method: "PATCH", body: patch });
+}
+
+export function deleteUser(id) {
+  return request(`/admin/users/${id}`, { method: "DELETE" });
 }

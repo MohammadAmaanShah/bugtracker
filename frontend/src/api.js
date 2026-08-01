@@ -1,6 +1,5 @@
-// export const API_URL = "https://bugtracker-3kyf.onrender.com/api";
+export const API_URL = process.env.API_URL;
 
-export const API_URL = "/api";
 
 const TOKEN_KEY = "bugtracker.token";
 
@@ -94,21 +93,6 @@ export function fetchUsers() {
   return request("/admin/users");
 }
 
-export function fetchPendingUserCount() {
-  return request("/admin/users/pending-count");
-}
-
 export function updateUser(id, patch) {
   return request(`/admin/users/${id}`, { method: "PATCH", body: patch });
-}
-
-export function deleteUser(id) {
-  return request(`/admin/users/${id}`, { method: "DELETE" });
-}
-
-export function deleteActions({ from, to } = {}) {
-  const params = new URLSearchParams();
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  return request(`/actions?${params.toString()}`, { method: "DELETE" });
 }

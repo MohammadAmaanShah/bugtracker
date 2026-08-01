@@ -3,7 +3,6 @@ import { signup, login } from "../api.js";
 
 export default function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
-  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -45,7 +44,7 @@ export default function AuthPage({ onAuthenticated }) {
         if (password !== confirm) {
           throw new Error("Passwords do not match");
         }
-        await signup({ name, username, password });
+        await signup({ username, password });
         await doLogin(username, password);
       } else {
         await doLogin(username, password);
@@ -119,19 +118,6 @@ export default function AuthPage({ onAuthenticated }) {
         </div>
 
         <h2>{mode === "login" ? "Welcome back" : "Create an account"}</h2>
-
-        {mode === "signup" && (
-          <label>
-            Name
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              required
-            />
-          </label>
-        )}
 
         <label>
           Username

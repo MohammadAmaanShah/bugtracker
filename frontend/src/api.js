@@ -1,4 +1,4 @@
-export const API_URL = "/api";
+export const API_URL = "https://bugtracker-dqz3.onrender.com/api";
 
 const TOKEN_KEY = "bugtracker.token";
 

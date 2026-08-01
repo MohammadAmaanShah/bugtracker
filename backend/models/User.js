@@ -7,14 +7,13 @@ const userSchema = new mongoose.Schema(
       required: [true, "Name is required"],
       trim: true,
       maxlength: 80,
+      default: "",
     },
     username: {
       type: String,
       required: [true, "Username is required"],
       trim: true,
       unique: true,
-      lowercase: true,
-      match: [/^[a-zA-Z0-9_.]{3,30}$/, "Username must be 3-30 characters (letters, numbers, _ or .)"],
     },
     passwordHash: {
       type: String,

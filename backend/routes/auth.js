@@ -20,11 +20,11 @@ function publicUser(u) {
 
 router.post("/signup", async (req, res) => {
   try {
-    const { name, username, password } = req.body;
-    if (!name || !username || !password) {
+    const { username, password } = req.body;
+    if (!username || !password) {
       return res
         .status(400)
-        .json({ message: "Name, username and password are required" });
+        .json({ message: "Username and password are required" });
     }
     if (String(password).length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
@@ -36,7 +36,7 @@ router.post("/signup", async (req, res) => {
     }
 
     const user = await User.create({
-      name: String(name).trim(),
+      name: normalizedUsername,
       username: normalizedUsername,
       passwordHash: hashValue(password),
       isVerified: true,

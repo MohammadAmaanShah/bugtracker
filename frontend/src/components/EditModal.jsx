@@ -17,6 +17,7 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
   const [description, setDescription] = useState(bug.description);
   const [status, setStatus] = useState(bug.status || "in_progress");
   const [reportedBy, setReportedBy] = useState(bug.reportedBy || "");
+  const [assignedTo, setAssignedTo] = useState(bug.assignedTo || "");
   const [users, setUsers] = useState([]);
   const [editedBy, setEditedBy] = useState(userName || "");
   const [file, setFile] = useState(null);
@@ -51,6 +52,7 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
       formData.append("description", description);
       formData.append("status", status);
       formData.append("reportedBy", reportedBy);
+      formData.append("assignedTo", assignedTo);
       formData.append("editedBy", editedBy);
       if (file) formData.append("screenshot", file);
       if (removeScreenshot) formData.append("removeScreenshot", "true");
@@ -116,6 +118,21 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
             {users.map((u) => (
               <option key={u._id} value={u.name}>
                 {u.name} (@{u.username})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Assign to
+          <select
+            value={assignedTo}
+            onChange={(e) => setAssignedTo(e.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {users.map((u) => (
+              <option key={u._id} value={u.name || u.username}>
+                {u.name || u.username} (@{u.username})
               </option>
             ))}
           </select>

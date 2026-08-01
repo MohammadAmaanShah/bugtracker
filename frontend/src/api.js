@@ -97,3 +97,14 @@ export function fetchUsers() {
 export function updateUser(id, patch) {
   return request(`/admin/users/${id}`, { method: "PATCH", body: patch });
 }
+
+export function deleteUser(id) {
+  return request(`/admin/users/${id}`, { method: "DELETE" });
+}
+
+export function deleteActions({ from, to } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return request(`/actions?${params.toString()}`, { method: "DELETE" });
+}

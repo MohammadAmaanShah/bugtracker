@@ -46,11 +46,23 @@ body {
 .header h1::after {
   content: " \2022";
   color: var(--gold);
+  display: inline-block;
+  animation: twinkle 1.4s ease-in-out infinite;
 }
 
 .header p {
   color: var(--muted);
   margin-top: 6px;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
 }
 
 /* ---------- Page navigation ---------- */
@@ -97,6 +109,35 @@ body {
 }
 
 /* ---------- Activity page ---------- */
+.activity-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.activity-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.activity-filters input[type="date"] {
+  padding: 8px 10px;
+  border: 1px solid var(--tan);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--brown);
+  background: var(--bg);
+  outline: none;
+  cursor: pointer;
+}
+
 .activity-list {
   display: flex;
   flex-direction: column;
@@ -532,6 +573,28 @@ body {
   color: var(--muted);
 }
 
+.assignee {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.assignee-label {
+  font-weight: 700;
+  color: var(--green);
+}
+
+.assignee-name {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.assignee-none {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .status-control label {
   display: flex;
   align-items: center;
@@ -772,6 +835,8 @@ body {
 .auth-brand h1::after {
   content: " \2022";
   color: var(--gold);
+  display: inline-block;
+  animation: twinkle 1.4s ease-in-out infinite;
 }
 
 .auth-brand p {
@@ -1079,6 +1144,17 @@ body {
 }
 
 .btn-revoke:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.btn-delete-user {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-delete-user:hover:not(:disabled) {
   background: var(--danger);
   color: #fff;
   border-color: var(--danger);

@@ -159,7 +159,7 @@ export default function App() {
         {page === "report" && (
           <ReportBugPage userName={user.name || user.username} onCreated={handleCreated} />
         )}
-        {page === "activity" && <ActivityPage />}
+        {page === "activity" && <ActivityPage isAdmin={user.role === "admin"} />}
         {page === "admin" && user.role === "admin" && (
           <AdminPage currentUserId={user.id} />
         )}

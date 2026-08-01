@@ -6,6 +6,7 @@ export default function BugForm({ userName, onCreated }) {
   const [role, setRole] = useState("");
   const [description, setDescription] = useState("");
   const [reportedBy, setReportedBy] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [users, setUsers] = useState([]);
   const [screenshot, setScreenshot] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -43,6 +44,7 @@ export default function BugForm({ userName, onCreated }) {
       formData.append("role", role);
       formData.append("description", description);
       formData.append("reportedBy", reportedBy);
+      formData.append("assignedTo", assignedTo);
       if (screenshot) formData.append("screenshot", screenshot);
 
       const bug = await createBug(formData);
@@ -99,6 +101,21 @@ export default function BugForm({ userName, onCreated }) {
           {users.map((u) => (
             <option key={u._id} value={u.name}>
               {u.name} (@{u.username})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Assign to
+        <select
+          value={assignedTo}
+          onChange={(e) => setAssignedTo(e.target.value)}
+        >
+          <option value="">Unassigned</option>
+          {users.map((u) => (
+            <option key={u._id} value={u.name || u.username}>
+              {u.name || u.username} (@{u.username})
             </option>
           ))}
         </select>

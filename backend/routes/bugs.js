@@ -43,6 +43,7 @@ router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
     const { title, role, description } = req.body;
     const screenshot = req.file ? `/uploads/${req.file.filename}` : null;
     const reportedBy = (req.body.reportedBy || "").trim() || actorName(req.user);
+    const assignedTo = (req.body.assignedTo || "").trim();
 
     const bug = await Bug.create({
       title,
@@ -50,6 +51,7 @@ router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
       description,
       screenshot,
       reportedBy,
+      assignedTo,
     });
 
     await Action.create({
@@ -71,7 +73,15 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     const bug = await Bug.findById(req.params.id);
     if (!bug) return res.status(404).json({ message: "Bug not found" });
 
-    const { title, role, description, status, reportedBy, editedBy } = req.body;
+    const {
+      title,
+      role,
+      description,
+      status,
+      reportedBy,
+      assignedTo,
+      editedBy,
+    } = req.body;
     const editor = (editedBy || "").trim() || actorName(req.user);
     const changes = [];
 
@@ -81,6 +91,7 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
       { key: "description", old: bug.description, next: description },
       { key: "status", old: bug.status, next: status },
       { key: "reportedBy", old: bug.reportedBy, next: reportedBy },
+      { key: "assignedTo", old: bug.assignedTo || "", next: assignedTo },
     ];
 
     for (const { key, old: oldVal, next: newVal } of textFields) {
@@ -112,6 +123,7 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     if (description !== undefined) bug.description = description;
     if (status !== undefined) bug.status = status;
     if (reportedBy !== undefined) bug.reportedBy = String(reportedBy).trim();
+    if (assignedTo !== undefined) bug.assignedTo = String(assignedTo).trim();
 
     for (const change of changes) {
       bug.editHistory.push({ editedBy: editor, ...change });

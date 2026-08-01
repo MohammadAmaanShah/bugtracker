@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchUsers, updateUser } from "../api.js";
+import { fetchUsers, updateUser, deleteUser } from "../api.js";
 
 export default function AdminDashboard({ currentUserId }) {
   const [users, setUsers] = useState([]);
@@ -29,11 +29,12 @@ export default function AdminDashboard({ currentUserId }) {
     }
   }
 
-  async function toggleRole(user) {
+  async function handleDelete(user) {
+    if (!window.confirm(`Delete user @${user.username}? This cannot be undone.`)) {
+      return;
+    }
     try {
-      await updateUser(user._id, {
-        role: user.role === "admin" ? "user" : "admin",
-      });
+      await deleteUser(user._id);
       await load();
     } catch (err) {
       alert(err.message);
@@ -89,10 +90,10 @@ export default function AdminDashboard({ currentUserId }) {
                 <button
                   type="button"
                   disabled={isSelf}
-                  className="btn-mini"
-                  onClick={() => toggleRole(u)}
+                  className="btn-mini btn-delete-user"
+                  onClick={() => handleDelete(u)}
                 >
-                  Make {u.role === "admin" ? "user" : "admin"}
+                  Delete
                 </button>
               </div>
             </div>

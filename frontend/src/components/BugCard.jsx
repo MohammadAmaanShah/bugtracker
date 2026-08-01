@@ -98,7 +98,14 @@ export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
         <span>
           {bug.reportedBy ? `Reported by ${bug.reportedBy}` : "Reported"}
         </span>
-        <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
+        <span>{new Date(bug.createdAt).toLocaleString()}</span>
+      </div>
+
+      <div className="assignee">
+        <span className="assignee-label">Assigned to</span>
+        <span className={bug.assignedTo ? "assignee-name" : "assignee-none"}>
+          {bug.assignedTo || "Unassigned"}
+        </span>
       </div>
 
       {bug.screenshot && (

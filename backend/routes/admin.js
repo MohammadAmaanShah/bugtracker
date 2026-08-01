@@ -29,4 +29,20 @@ router.patch("/users/:id", async (req, res) => {
   }
 });
 
+router.delete("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (String(user._id) === String(req.user._id)) {
+      return res
+        .status(400)
+        .json({ message: "You cannot delete your own account" });
+    }
+    await user.deleteOne();
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 export default router;

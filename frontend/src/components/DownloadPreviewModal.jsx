@@ -3,6 +3,7 @@ import { statusLabel } from "./EditModal.jsx";
 const FORMAT_LABELS = {
   pptx: "PowerPoint (.pptx)",
   docx: "Google Docs / Word (.docx)",
+  pdf: "PDF (.pdf)",
 };
 
 export default function DownloadPreviewModal({ format, bugs, onCancel, onDownload }) {

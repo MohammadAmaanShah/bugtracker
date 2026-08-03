@@ -151,6 +151,7 @@ export default function BugsPage({
         >
           <option value="pptx">PowerPoint (.pptx)</option>
           <option value="docx">Google Docs / Word (.docx)</option>
+          <option value="pdf">PDF (.pdf)</option>
         </select>
         <div className="download-actions">
           {DOWNLOAD_OPTIONS.map((o) => (
@@ -178,7 +179,7 @@ export default function BugsPage({
           ref={importFileRef}
           type="file"
           hidden
-          accept=".csv,.xlsx,.pptx,.docx"
+          accept=".csv,.xlsx,.pptx,.docx,.pdf"
           onChange={handleImportFile}
         />
       </div>

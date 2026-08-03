@@ -25,10 +25,10 @@ const importUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = [".csv", ".xlsx", ".pptx", ".docx"];
+    const allowed = [".csv", ".xlsx", ".pptx", ".docx", ".pdf"];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.includes(ext)) return cb(null, true);
-    cb(new Error("Only CSV, Excel (.xlsx), PPT (.pptx), and DOCX files are allowed"));
+    cb(new Error("Only CSV, Excel (.xlsx), PPT (.pptx), DOCX, and PDF files are allowed"));
   },
 });
 

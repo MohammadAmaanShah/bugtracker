@@ -1,4 +1,5 @@
 import pptxgen from "pptxgenjs";
+import { jsPDF } from "jspdf";
 import {
   Document,
   Packer,
@@ -235,7 +236,104 @@ async function buildPptx(bugs) {
   await pptx.writeFile({ fileName: `bug-report-${Date.now()}.pptx` });
 }
 
+function getImageSize(dataUri) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () =>
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = dataUri;
+  });
+}
+
+function writeWrapped(doc, text, x, y, maxWidth, fontSize, lineHeight, options = {}) {
+  const lines = doc.splitTextToSize(text, maxWidth);
+  for (const line of lines) {
+    if (y + lineHeight > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      y = 40;
+    }
+    doc.setFontSize(fontSize);
+    doc.text(line, x, y, options);
+    y += lineHeight;
+  }
+  return y;
+}
+
+export async function downloadPdf(bugs) {
+  const rows = await enrichWithImages(bugs);
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  const maxWidth = pageWidth - margin * 2;
+  const label = (name, value) => `${name}: ${value || "—"}`;
+
+  let y = margin;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.setTextColor(55, 71, 47);
+  doc.text("Bug Report", pageWidth / 2, y, { align: "center" });
+  y += 24;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(111, 99, 80);
+  doc.text(
+    `Generated on ${new Date().toLocaleString()} · ${rows.length} bug(s)`,
+    pageWidth / 2,
+    y,
+    { align: "center" }
+  );
+  y += 36;
+
+  for (const bug of rows) {
+    if (y + 40 > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(55, 71, 47);
+    y = writeWrapped(doc, label("Title", bug.title), margin, y, maxWidth, 14, 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(58, 42, 6);
+    y = writeWrapped(doc, label("In Role", bug.role), margin, y, maxWidth, 11, 16);
+    y = writeWrapped(doc, label("Reported by", bug.reportedBy), margin, y, maxWidth, 11, 16);
+    if (bug.assignedTo) {
+      y = writeWrapped(doc, label("Assign to", bug.assignedTo), margin, y, maxWidth, 11, 16);
+    }
+    y = writeWrapped(doc, label("Status", statusLabel(bug.status)), margin, y, maxWidth, 11, 16);
+    y = writeWrapped(doc, label("Description", bug.description), margin, y, maxWidth, 11, 16);
+
+    if (bug.imageDataUri) {
+      const size = await getImageSize(bug.imageDataUri);
+      if (size) {
+        const maxH = 160;
+        const ratio = Math.min(maxW / size.width, maxH / size.height);
+        const w = Math.max(1, size.width * ratio);
+        const h = Math.max(1, size.height * ratio);
+        if (y + h + 10 > doc.internal.pageSize.getHeight() - 40) {
+          doc.addPage();
+          y = margin;
+        }
+        const format = bug.imageDataUri.includes("image/png") ? "PNG" : "JPEG";
+        doc.addImage(bug.imageDataUri, format, margin, y, w, h);
+        y += h + 14;
+      }
+    }
+
+    y += 22;
+  }
+
+  doc.save(`bug-report-${Date.now()}.pdf`);
+}
+
 export async function downloadReport(bugs, format) {
   if (format === "docx") return downloadDocx(bugs);
+  if (format === "pdf") return downloadPdf(bugs);
   return buildPptx(bugs);
 }

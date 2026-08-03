@@ -567,14 +567,43 @@ body {
 }
 
 .btn-import {
-  border-color: var(--gold);
-  color: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 2px solid var(--brown);
+  border-radius: 10px;
+  background: var(--gold);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(58, 42, 6, 0.18);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s,
+    box-shadow 0.15s;
+}
+
+.btn-import::before {
+  content: "\2191";
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .btn-import:hover:not(:disabled) {
-  background: var(--gold);
-  color: #fff;
-  border-color: var(--gold);
+  background: var(--gold-light);
+  border-color: var(--green-dark);
+}
+
+.btn-import:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(58, 42, 6, 0.18);
+}
+
+.btn-import:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .import-result {

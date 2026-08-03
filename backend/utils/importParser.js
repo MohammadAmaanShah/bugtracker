@@ -1,6 +1,7 @@
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
+import { PDFParse } from "pdf-parse";
 import path from "path";
 
 const HEADER_ALIASES = {
@@ -229,6 +230,70 @@ const parsePptx = async (buffer) => {
   return { bugs, skipped };
 };
 
+const parsePdf = async (buffer) => {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const result = await parser.getText();
+  const lines = result.text.split(/\r?\n/);
+
+  const bugs = [];
+  const skipped = [];
+  let current = null;
+  let entryCount = 0;
+
+  const flush = () => {
+    if (!current) return;
+    entryCount += 1;
+    const { bug, reason } = mapRow(current);
+    if (bug) bugs.push(bug);
+    else skipped.push({ row: entryCount, reason });
+    current = null;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (/^bug report$/i.test(line)) continue;
+    if (/^generated on /i.test(line)) continue;
+    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) continue;
+
+    const mTitle = line.match(/^title\s*:\s*(.*)$/i);
+    const mRole = line.match(/^(?:in\s*role|role)\s*:\s*(.*)$/i);
+    const mDesc = line.match(/^description\s*:\s*(.*)$/i);
+    const mRep = line.match(/^reported\s*by\s*:\s*(.*)$/i);
+    const mAsg = line.match(/^assign(?:ed)?\s*to\s*:\s*(.*)$/i);
+    const mStatus = line.match(/^status\s*:\s*(.*)$/i);
+
+    if (mTitle) {
+      flush();
+      current = {
+        title: mTitle[1].trim(),
+        role: "",
+        description: "",
+        reportedBy: "",
+        assignedTo: "",
+        status: "",
+      };
+    } else if (mRole) {
+      if (current) current.role = mRole[1].trim();
+    } else if (mDesc) {
+      if (current) current.description = mDesc[1].trim();
+    } else if (mRep) {
+      if (current) current.reportedBy = mRep[1].trim();
+    } else if (mAsg) {
+      if (current) current.assignedTo = mAsg[1].trim();
+    } else if (mStatus) {
+      if (current) current.status = mStatus[1].trim();
+    } else if (current) {
+      current.description = current.description
+        ? `${current.description}\n${line}`
+        : line;
+    }
+  }
+  flush();
+
+  return { bugs, skipped };
+};
+
 export async function parseImportFile(buffer, filename) {
   const ext = path.extname(filename || "").toLowerCase();
 
@@ -243,6 +308,8 @@ export async function parseImportFile(buffer, filename) {
       return parseDocx(buffer);
     case ".pptx":
       return parsePptx(buffer);
+    case ".pdf":
+      return parsePdf(buffer);
     default:
       throw new Error("Unsupported file type");
   }

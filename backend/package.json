@@ -17,6 +17,7 @@
     "jszip": "^3.10.1",
     "mongodb": "^7.5.0",
     "mongoose": "^8.9.5",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "pdf-parse": "^2.4.5"
   }
 }

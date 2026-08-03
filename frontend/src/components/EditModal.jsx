@@ -101,6 +101,7 @@ export default function EditModal({ bug, userName, isAdmin, onClose, onSaved }) 
           Description
           <textarea
             rows="4"
+            maxLength={20000}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required

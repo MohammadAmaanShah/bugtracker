@@ -41,7 +41,7 @@ const bugSchema = new mongoose.Schema(
       type: String,
       required: [true, "Description is required"],
       trim: true,
-      maxlength: 5000,
+      maxlength: 20000,
     },
     screenshot: {
       type: String,

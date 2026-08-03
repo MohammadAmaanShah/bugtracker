@@ -130,6 +130,7 @@ export default function BugForm({ userName, isAdmin, onCreated }) {
         Description
         <textarea
           rows="4"
+          maxLength={20000}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the bug and what you expected..."

@@ -1,8 +1,10 @@
 import express from "express";
+import multer from "multer";
 import Bug from "../models/Bug.js";
 import Action from "../models/Action.js";
 import { upload } from "../middleware/upload.js";
 import { requireAuth } from "../middleware/auth.js";
+import { parseImportFile } from "../utils/importParser.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -18,6 +20,17 @@ const removeFile = (screenshotPath) => {
 };
 
 const actorName = (user) => user.name || user.username || "Unknown";
+
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [".csv", ".xlsx", ".pptx", ".docx"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) return cb(null, true);
+    cb(new Error("Only CSV, Excel (.xlsx), PPT (.pptx), and DOCX files are allowed"));
+  },
+});
 
 router.get("/", async (req, res) => {
   try {
@@ -35,6 +48,40 @@ router.get("/", async (req, res) => {
     res.json(bugs);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/import", requireAuth, importUpload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const { bugs, skipped } = await parseImportFile(
+      req.file.buffer,
+      req.file.originalname
+    );
+
+    if (bugs.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No valid bug rows found in the file", skipped });
+    }
+
+    const created = await Bug.create(bugs);
+    const actor = actorName(req.user);
+
+    for (const bug of created) {
+      await Action.create({
+        action: "created",
+        actor,
+        bugId: bug._id,
+        bugTitle: bug.title,
+        newValue: statusLabel(bug.status),
+      });
+    }
+
+    res.status(201).json({ imported: created.length, skipped, bugs: created });
+  } catch (err) {
+    res.status(400).json({ message: err.message, skipped: [] });
   }
 });
 

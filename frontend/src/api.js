@@ -54,6 +54,10 @@ export function createBug(formData) {
   return request("/bugs", { method: "POST", body: formData });
 }
 
+export function importBugs(formData) {
+  return request("/bugs/import", { method: "POST", body: formData });
+}
+
 export function updateBug(id, formData) {
   return request(`/bugs/${id}`, { method: "PUT", body: formData });
 }

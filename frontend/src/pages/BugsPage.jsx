@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
-import { fetchBugs } from "../api.js";
+import { fetchBugs, importBugs } from "../api.js";
 import BugCard from "../components/BugCard.jsx";
+import DownloadPreviewModal from "../components/DownloadPreviewModal.jsx";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
@@ -27,7 +28,11 @@ export default function BugsPage({
   const [statusFilter, setStatusFilter] = useState("");
   const [format, setFormat] = useState("pptx");
   const [downloading, setDownloading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const searchTimer = useRef(null);
+  const importFileRef = useRef(null);
 
   async function loadBugs(overrides = {}) {
     try {
@@ -70,17 +75,48 @@ export default function BugsPage({
   }
 
   async function handleDownload(status) {
-    setDownloading(true);
     try {
       const data = await fetchBugs({ status });
+      setPreview({ status, data, format });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function doDownload() {
+    if (!preview) return;
+    setDownloading(true);
+    try {
       const { downloadReport } = await import("../downloadReport.js");
-      await downloadReport(data, format);
+      await downloadReport(preview.data, preview.format);
+      setPreview(null);
     } catch (err) {
       alert(err.message);
     } finally {
       setDownloading(false);
     }
   }
+
+  async function handleImportFile(e) {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await importBugs(formData);
+      setImportResult(res);
+      loadBugs();
+    } catch (err) {
+      setImportResult({ error: err.message });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const skippedCount = importResult?.skipped?.length || 0;
 
   return (
     <section>
@@ -125,11 +161,58 @@ export default function BugsPage({
               disabled={downloading}
               onClick={() => handleDownload(o.value)}
             >
-              {downloading ? "Preparing..." : o.label}
+              {o.label}
             </button>
           ))}
         </div>
+        <span className="download-sep" />
+        <button
+          type="button"
+          className="btn-mini btn-import"
+          onClick={() => importFileRef.current?.click()}
+          disabled={importing}
+        >
+          {importing ? "Importing..." : "Import bugs"}
+        </button>
+        <input
+          ref={importFileRef}
+          type="file"
+          hidden
+          accept=".csv,.xlsx,.pptx,.docx"
+          onChange={handleImportFile}
+        />
       </div>
+
+      {importResult && (
+        <div
+          className={`import-result card ${
+            importResult.error ? "import-result-error" : ""
+          }`}
+        >
+          {importResult.error ? (
+            <p className="error">{importResult.error}</p>
+          ) : (
+            <>
+              <p className="success">
+                Imported {importResult.imported} bug
+                {importResult.imported === 1 ? "" : "s"}
+                {skippedCount > 0
+                  ? ` · ${skippedCount} row${skippedCount === 1 ? "" : "s"} skipped`
+                  : ""}
+              </p>
+              {skippedCount > 0 && (
+                <ul className="skip-list">
+                  {importResult.skipped.map((s, i) => (
+                    <li key={i}>
+                      Row {s.row}: {s.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <h2 className="section-title">
         Reported bugs <span className="count">{bugs.length}</span>
@@ -152,6 +235,15 @@ export default function BugsPage({
           />
         ))}
       </div>
+
+      {preview && (
+        <DownloadPreviewModal
+          format={preview.format}
+          bugs={preview.data}
+          onCancel={() => setPreview(null)}
+          onDownload={doDownload}
+        />
+      )}
     </section>
   );
 }

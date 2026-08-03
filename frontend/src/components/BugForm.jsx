@@ -17,10 +17,7 @@ export default function BugForm({ userName, isAdmin, onCreated }) {
   const submittedTimer = useRef(null);
 
   useEffect(() => {
-    if (!isAdmin) {
-      if (userName) setReportedBy(userName);
-      return () => clearTimeout(submittedTimer.current);
-    }
+    if (!isAdmin && userName) setReportedBy(userName);
     fetchVerifiedUsers()
       .then((list) => {
         setUsers(list);

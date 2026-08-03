@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { deleteBug, updateBug } from "../api.js";
+import { deleteBug, updateBug, mediaUrl } from "../api.js";
 import EditModal, { statusLabel } from "./EditModal.jsx";
 
 const FIELD_LABELS = {
@@ -110,13 +110,24 @@ export default function BugCard({ bug, userName, isAdmin, onDeleted, onUpdated }
 
       {bug.screenshot && (
         <div className="screenshot-wrap" onClick={() => setZoomed(true)}>
-          <img src={bug.screenshot} alt={bug.title} />
+          <img src={mediaUrl(bug.screenshot)} alt={bug.title} />
         </div>
       )}
 
       {zoomed && (
         <div className="lightbox" onClick={() => setZoomed(false)}>
-          <img src={bug.screenshot} alt={bug.title} />
+          <button
+            type="button"
+            className="lightbox-close"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomed(false);
+            }}
+            aria-label="Close preview"
+          >
+            &times;
+          </button>
+          <img src={mediaUrl(bug.screenshot)} alt={bug.title} />
         </div>
       )}
 

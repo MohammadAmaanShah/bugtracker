@@ -187,18 +187,20 @@ export default function BugCard({ bug, userName, isAdmin, onDeleted, onUpdated }
         >
           Edit
         </button>
-        <button
-          type="button"
-          className={`btn-delete ${confirming ? "confirm" : ""}`}
-          onClick={handleDelete}
-          disabled={deleting}
-        >
-          {deleting
-            ? "Deleting..."
-            : confirming
-            ? "Click again to confirm"
-            : "Delete"}
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className={`btn-delete ${confirming ? "confirm" : ""}`}
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting
+              ? "Deleting..."
+              : confirming
+              ? "Click again to confirm"
+              : "Delete"}
+          </button>
+        )}
       </div>
 
       {editing && (

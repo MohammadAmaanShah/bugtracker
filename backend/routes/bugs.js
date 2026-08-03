@@ -3,7 +3,7 @@ import multer from "multer";
 import Bug from "../models/Bug.js";
 import Action from "../models/Action.js";
 import { upload } from "../middleware/upload.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { parseImportFile } from "../utils/importParser.js";
 import path from "path";
 import fs from "fs";
@@ -229,7 +229,7 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
   }
 });
 
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     const bug = await Bug.findById(req.params.id);
     if (!bug) return res.status(404).json({ message: "Bug not found" });

@@ -29,7 +29,16 @@ const fieldForHeader = (header) => {
 
 const mapStatus = (value) => {
   const key = norm(value);
-  if (key === "fixed" || key === "closed" || key === "done") return "fixed";
+  if (
+    key === "fixed" ||
+    key === "closed" ||
+    key === "done" ||
+    key === "resolved" ||
+    key === "completed" ||
+    key === "complete"
+  ) {
+    return "fixed";
+  }
   return "in_progress";
 };
 
@@ -230,11 +239,78 @@ const parsePptx = async (buffer) => {
   return { bugs, skipped };
 };
 
+const PDF_LABEL_RE = {
+  title: /^(?:title|subject|summary)\s*:\s*(.*)$/i,
+  role: /^(?:in\s*role|role|as)\s*:\s*(.*)$/i,
+  description: /^(?:description|details|notes|desc)\s*:\s*(.*)$/i,
+  reportedBy: /^(?:reported\s*by|reporter|reported|by)\s*:\s*(.*)$/i,
+  assignedTo: /^(?:assign(?:ed)?\s*to|assignee)\s*:\s*(.*)$/i,
+  status: /^(?:status|state)\s*:\s*(.*)$/i,
+};
+
+const PDF_HAS_LABEL_RE =
+  /^\s*(?:title|subject|summary|in\s*role|role|description|details|notes|reported\s*by|reporter|assign(?:ed)?\s*to|assignee|status|state)\s*:/i;
+
+const PDF_NOISE_RE = [
+  /^bug report$/i,
+  /^generated on /i,
+  /^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i,
+];
+
+const PDF_SECTION_RE = /^(?:bug|issue|case)\s+(?:report\s+)?#?\s*\d+\s*(?:$|[:.\-])/i;
+
+const STATUS_KEYWORD_RE =
+  /^(?:open|in\s*progress|in-progress|progress|pending|new|todo|to\s*do|fixed|closed|resolved|done|completed|complete|not\s*fixed)$/i;
+
+const KNOWN_ROLES = new Set([
+  "admin",
+  "administrator",
+  "user",
+  "customer",
+  "client",
+  "worker",
+  "employee",
+  "guest",
+  "tester",
+  "qa",
+  "developer",
+  "dev",
+  "manager",
+  "operator",
+  "seller",
+  "buyer",
+  "delivery",
+  "rider",
+  "owner",
+  "staff",
+  "executive",
+  "supervisor",
+  "agent",
+  "general",
+]);
+
+const emptyBug = () => ({
+  title: "",
+  role: "",
+  description: "",
+  reportedBy: "",
+  assignedTo: "",
+  status: "",
+});
+
 const parsePdf = async (buffer) => {
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   const result = await parser.getText();
-  const lines = result.text.split(/\r?\n/);
+  const lines = result.text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
+  const labeled = lines.some((line) => PDF_HAS_LABEL_RE.test(line));
+  return labeled ? parseLabeledPdf(lines) : parseHeuristicPdf(lines);
+};
+
+const parseLabeledPdf = (lines) => {
   const bugs = [];
   const skipped = [];
   let current = null;
@@ -252,6 +328,16 @@ const parsePdf = async (buffer) => {
     }
   };
 
+  const applyLabel = (field, match) => {
+    const value = match[1].trim();
+    if (value) {
+      current[field] = value;
+      pendingField = null;
+    } else {
+      pendingField = field;
+    }
+  };
+
   const flush = () => {
     if (!current) return;
     entryCount += 1;
@@ -262,51 +348,24 @@ const parsePdf = async (buffer) => {
     pendingField = null;
   };
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    if (/^bug report$/i.test(line)) continue;
-    if (/^generated on /i.test(line)) continue;
-    if (/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(line)) continue;
+  for (const line of lines) {
+    if (PDF_NOISE_RE.some((rx) => rx.test(line))) continue;
 
-    const mTitle = line.match(/^title\s*:\s*(.*)$/i);
-    const mRole = line.match(/^(?:in\s*role|role)\s*:\s*(.*)$/i);
-    const mDesc = line.match(/^description\s*:\s*(.*)$/i);
-    const mRep = line.match(/^reported\s*by\s*:\s*(.*)$/i);
-    const mAsg = line.match(/^assign(?:ed)?\s*to\s*:\s*(.*)$/i);
-    const mStatus = line.match(/^status\s*:\s*(.*)$/i);
-
-    const applyLabel = (field, match) => {
-      const value = match[1].trim();
-      if (value) {
-        current[field] = value;
-        pendingField = null;
-      } else {
-        pendingField = field;
-      }
-    };
-
-    if (mTitle) {
+    let m;
+    if ((m = line.match(PDF_LABEL_RE.title))) {
       flush();
-      current = {
-        title: "",
-        role: "",
-        description: "",
-        reportedBy: "",
-        assignedTo: "",
-        status: "",
-      };
-      applyLabel("title", mTitle);
-    } else if (mRole) {
-      if (current) applyLabel("role", mRole);
-    } else if (mDesc) {
-      if (current) applyLabel("description", mDesc);
-    } else if (mRep) {
-      if (current) applyLabel("reportedBy", mRep);
-    } else if (mAsg) {
-      if (current) applyLabel("assignedTo", mAsg);
-    } else if (mStatus) {
-      if (current) applyLabel("status", mStatus);
+      current = emptyBug();
+      applyLabel("title", m);
+    } else if ((m = line.match(PDF_LABEL_RE.role))) {
+      if (current) applyLabel("role", m);
+    } else if ((m = line.match(PDF_LABEL_RE.description))) {
+      if (current) applyLabel("description", m);
+    } else if ((m = line.match(PDF_LABEL_RE.reportedBy))) {
+      if (current) applyLabel("reportedBy", m);
+    } else if ((m = line.match(PDF_LABEL_RE.assignedTo))) {
+      if (current) applyLabel("assignedTo", m);
+    } else if ((m = line.match(PDF_LABEL_RE.status))) {
+      if (current) applyLabel("status", m);
     } else if (current) {
       if (pendingField) assignPending(line);
       else if (current.description) current.description += `\n${line}`;
@@ -314,7 +373,94 @@ const parsePdf = async (buffer) => {
     }
   }
   flush();
+  return { bugs, skipped };
+};
 
+const parseHeuristicPdf = (lines) => {
+  const bugs = [];
+  const skipped = [];
+  let current = null;
+  let entryCount = 0;
+
+  const flush = () => {
+    if (!current) return;
+    entryCount += 1;
+    if (!current.role) current.role = "General";
+    if (!current.description) current.description = "No description provided";
+    const { bug, reason } = mapRow(current);
+    if (bug) bugs.push(bug);
+    else skipped.push({ row: entryCount, reason });
+    current = null;
+  };
+
+  const setField = (field, match) => {
+    const value = (match[1] || "").trim();
+    if (value) current[field] = value;
+  };
+
+  for (const line of lines) {
+    if (PDF_NOISE_RE.some((rx) => rx.test(line))) continue;
+
+    if (PDF_SECTION_RE.test(line)) {
+      flush();
+      current = emptyBug();
+      const heading = line.replace(PDF_SECTION_RE, "").trim();
+      current.title = heading || `Bug ${bugs.length + skipped.length + 1}`;
+      continue;
+    }
+
+    if (!current) current = emptyBug();
+
+    let m;
+    if ((m = line.match(PDF_LABEL_RE.title))) {
+      setField("title", m);
+      continue;
+    }
+    if ((m = line.match(PDF_LABEL_RE.role))) {
+      setField("role", m);
+      continue;
+    }
+    if ((m = line.match(PDF_LABEL_RE.description))) {
+      setField("description", m);
+      continue;
+    }
+    if ((m = line.match(PDF_LABEL_RE.reportedBy))) {
+      setField("reportedBy", m);
+      continue;
+    }
+    if ((m = line.match(PDF_LABEL_RE.assignedTo))) {
+      setField("assignedTo", m);
+      continue;
+    }
+    if ((m = line.match(PDF_LABEL_RE.status))) {
+      setField("status", m);
+      continue;
+    }
+
+    if (!current.title && line.endsWith(":")) continue;
+
+    if (!current.status && STATUS_KEYWORD_RE.test(line)) {
+      current.status = mapStatus(line);
+      continue;
+    }
+    if (!current.role && KNOWN_ROLES.has(line.toLowerCase())) {
+      current.role =
+        line.charAt(0).toUpperCase() + line.slice(1).toLowerCase();
+      continue;
+    }
+    if (!current.reportedBy && line.includes("@") && line.length <= 60) {
+      current.reportedBy = line;
+      continue;
+    }
+    if (!current.title) {
+      current.title = line;
+      continue;
+    }
+    current.description = current.description
+      ? `${current.description}\n${line}`
+      : line;
+  }
+  flush();
   return { bugs, skipped };
 };
 

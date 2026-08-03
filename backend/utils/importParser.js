@@ -238,7 +238,19 @@ const parsePdf = async (buffer) => {
   const bugs = [];
   const skipped = [];
   let current = null;
+  let pendingField = null;
   let entryCount = 0;
+
+  const assignPending = (value) => {
+    if (!pendingField || !current) return;
+    if (pendingField === "description") {
+      current.description = current.description
+        ? `${current.description}\n${value}`
+        : value;
+    } else if (!current[pendingField]) {
+      current[pendingField] = value;
+    }
+  };
 
   const flush = () => {
     if (!current) return;
@@ -247,6 +259,7 @@ const parsePdf = async (buffer) => {
     if (bug) bugs.push(bug);
     else skipped.push({ row: entryCount, reason });
     current = null;
+    pendingField = null;
   };
 
   for (const rawLine of lines) {
@@ -263,30 +276,41 @@ const parsePdf = async (buffer) => {
     const mAsg = line.match(/^assign(?:ed)?\s*to\s*:\s*(.*)$/i);
     const mStatus = line.match(/^status\s*:\s*(.*)$/i);
 
+    const applyLabel = (field, match) => {
+      const value = match[1].trim();
+      if (value) {
+        current[field] = value;
+        pendingField = null;
+      } else {
+        pendingField = field;
+      }
+    };
+
     if (mTitle) {
       flush();
       current = {
-        title: mTitle[1].trim(),
+        title: "",
         role: "",
         description: "",
         reportedBy: "",
         assignedTo: "",
         status: "",
       };
+      applyLabel("title", mTitle);
     } else if (mRole) {
-      if (current) current.role = mRole[1].trim();
+      if (current) applyLabel("role", mRole);
     } else if (mDesc) {
-      if (current) current.description = mDesc[1].trim();
+      if (current) applyLabel("description", mDesc);
     } else if (mRep) {
-      if (current) current.reportedBy = mRep[1].trim();
+      if (current) applyLabel("reportedBy", mRep);
     } else if (mAsg) {
-      if (current) current.assignedTo = mAsg[1].trim();
+      if (current) applyLabel("assignedTo", mAsg);
     } else if (mStatus) {
-      if (current) current.status = mStatus[1].trim();
+      if (current) applyLabel("status", mStatus);
     } else if (current) {
-      current.description = current.description
-        ? `${current.description}\n${line}`
-        : line;
+      if (pendingField) assignPending(line);
+      else if (current.description) current.description += `\n${line}`;
+      else current.description = line;
     }
   }
   flush();

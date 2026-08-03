@@ -61,9 +61,17 @@ router.post("/import", requireAuth, importUpload.single("file"), async (req, res
     );
 
     if (bugs.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "No valid bug rows found in the file", skipped });
+      const details =
+        skipped.length > 0
+          ? ` ${skipped.length} row(s) skipped (${skipped
+              .slice(0, 5)
+              .map((s) => `row ${s.row}: ${s.reason}`)
+              .join("; ")}).`
+          : "";
+      return res.status(400).json({
+        message: `No valid bug rows found in the file.${details} Make sure each bug has a Title, In Role, and Description (e.g. use the app's PDF report export, or lines like "Title: ...", "In Role: ...", "Description: ...").`,
+        skipped,
+      });
     }
 
     const created = await Bug.create(bugs);

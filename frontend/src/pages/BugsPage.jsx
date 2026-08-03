@@ -111,7 +111,7 @@ export default function BugsPage({
       setImportResult(res);
       loadBugs();
     } catch (err) {
-      setImportResult({ error: err.message });
+      setImportResult({ error: err.message, skipped: err.data?.skipped || [] });
     } finally {
       setImporting(false);
     }
@@ -142,7 +142,6 @@ export default function BugsPage({
           ))}
         </div>
       </div>
-
       <div className="download-bar card">
         <span className="download-label">Download report</span>
         <select
@@ -192,7 +191,18 @@ export default function BugsPage({
           }`}
         >
           {importResult.error ? (
-            <p className="error">{importResult.error}</p>
+            <>
+              <p className="error">{importResult.error}</p>
+              {skippedCount > 0 && (
+                <ul className="skip-list">
+                  {importResult.skipped.map((s, i) => (
+                    <li key={i}>
+                      Row {s.row}: {s.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           ) : (
             <>
               <p className="success">

@@ -11,7 +11,7 @@ export function statusLabel(value) {
   return s ? s.label : value;
 }
 
-export default function EditModal({ bug, userName, onClose, onSaved }) {
+export default function EditModal({ bug, userName, isAdmin, onClose, onSaved }) {
   const [title, setTitle] = useState(bug.title);
   const [role, setRole] = useState(bug.role);
   const [description, setDescription] = useState(bug.description);
@@ -51,7 +51,7 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
       formData.append("role", role);
       formData.append("description", description);
       formData.append("status", status);
-      formData.append("reportedBy", reportedBy);
+      if (isAdmin) formData.append("reportedBy", reportedBy);
       formData.append("assignedTo", assignedTo);
       formData.append("editedBy", editedBy);
       if (file) formData.append("screenshot", file);
@@ -107,21 +107,23 @@ export default function EditModal({ bug, userName, onClose, onSaved }) {
           />
         </label>
 
-        <label>
-          Reported by
-          <select
-            value={reportedBy}
-            onChange={(e) => setReportedBy(e.target.value)}
-            required
-          >
-            <option value="">Select a user</option>
-            {users.map((u) => (
-              <option key={u._id} value={u.name}>
-                {u.name} (@{u.username})
-              </option>
-            ))}
-          </select>
-        </label>
+        {isAdmin && (
+          <label>
+            Reported by
+            <select
+              value={reportedBy}
+              onChange={(e) => setReportedBy(e.target.value)}
+              required
+            >
+              <option value="">Select a user</option>
+              {users.map((u) => (
+                <option key={u._id} value={u.name}>
+                  {u.name} (@{u.username})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label>
           Assign to

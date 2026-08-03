@@ -190,10 +190,15 @@ export default function App() {
             error={error}
             setError={setError}
             userName={user.name || user.username}
+            isAdmin={user.role === "admin"}
           />
         )}
         {page === "report" && (
-          <ReportBugPage userName={user.name || user.username} onCreated={handleCreated} />
+          <ReportBugPage
+            userName={user.name || user.username}
+            isAdmin={user.role === "admin"}
+            onCreated={handleCreated}
+          />
         )}
         {page === "activity" && <ActivityPage isAdmin={user.role === "admin"} />}
         {page === "admin" && user.role === "admin" && (

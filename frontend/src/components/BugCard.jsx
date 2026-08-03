@@ -13,7 +13,7 @@ const FIELD_LABELS = {
 
 const READ_MORE_CHARS = 180;
 
-export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
+export default function BugCard({ bug, userName, isAdmin, onDeleted, onUpdated }) {
   const [deleting, setDeleting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -194,6 +194,7 @@ export default function BugCard({ bug, userName, onDeleted, onUpdated }) {
         <EditModal
           bug={bug}
           userName={userName}
+          isAdmin={isAdmin}
           onClose={() => setEditing(false)}
           onSaved={(updated) => {
             setEditing(false);

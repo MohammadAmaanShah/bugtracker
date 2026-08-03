@@ -23,6 +23,7 @@ export default function BugsPage({
   error,
   setError,
   userName,
+  isAdmin,
 }) {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -231,6 +232,7 @@ export default function BugsPage({
             key={bug._id}
             bug={bug}
             userName={userName}
+            isAdmin={isAdmin}
             onDeleted={handleDeleted}
             onUpdated={handleUpdated}
           />

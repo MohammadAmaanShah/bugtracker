@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createBug, fetchVerifiedUsers } from "../api.js";
 
-export default function BugForm({ userName, onCreated }) {
+export default function BugForm({ userName, isAdmin, onCreated }) {
   const [title, setTitle] = useState("");
   const [role, setRole] = useState("");
   const [description, setDescription] = useState("");
@@ -17,6 +17,10 @@ export default function BugForm({ userName, onCreated }) {
   const submittedTimer = useRef(null);
 
   useEffect(() => {
+    if (!isAdmin) {
+      if (userName) setReportedBy(userName);
+      return () => clearTimeout(submittedTimer.current);
+    }
     fetchVerifiedUsers()
       .then((list) => {
         setUsers(list);
@@ -24,7 +28,7 @@ export default function BugForm({ userName, onCreated }) {
       })
       .catch(() => {});
     return () => clearTimeout(submittedTimer.current);
-  }, [userName]);
+  }, [userName, isAdmin]);
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -92,18 +96,22 @@ export default function BugForm({ userName, onCreated }) {
 
       <label>
         Reported by
-        <select
-          value={reportedBy}
-          onChange={(e) => setReportedBy(e.target.value)}
-          required
-        >
-          <option value="">Select a user</option>
-          {users.map((u) => (
-            <option key={u._id} value={u.name}>
-              {u.name} (@{u.username})
-            </option>
-          ))}
-        </select>
+        {isAdmin ? (
+          <select
+            value={reportedBy}
+            onChange={(e) => setReportedBy(e.target.value)}
+            required
+          >
+            <option value="">Select a user</option>
+            {users.map((u) => (
+              <option key={u._id} value={u.name}>
+                {u.name} (@{u.username})
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input type="text" value={reportedBy || userName} readOnly />
+        )}
       </label>
 
       <label>

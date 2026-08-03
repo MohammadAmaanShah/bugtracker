@@ -89,7 +89,11 @@ router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
   try {
     const { title, role, description } = req.body;
     const screenshot = req.file ? `/uploads/${req.file.filename}` : null;
-    const reportedBy = (req.body.reportedBy || "").trim() || actorName(req.user);
+    const isAdmin = req.user.role === "admin";
+    const submittedBy = (req.body.reportedBy || "").trim();
+    const reportedBy = isAdmin
+      ? submittedBy || actorName(req.user)
+      : actorName(req.user);
     const assignedTo = (req.body.assignedTo || "").trim();
 
     const bug = await Bug.create({
@@ -131,6 +135,17 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     } = req.body;
     const editor = (editedBy || "").trim() || actorName(req.user);
     const changes = [];
+
+    if (
+      req.user.role !== "admin" &&
+      reportedBy !== undefined &&
+      String(reportedBy).trim() &&
+      String(reportedBy).trim() !== actorName(req.user)
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Only admins can set Reported by to another user" });
+    }
 
     const textFields = [
       { key: "title", old: bug.title, next: title },

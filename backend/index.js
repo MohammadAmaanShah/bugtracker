@@ -12,6 +12,7 @@ import usersRouter from "./routes/users.js";
 import User from "./models/User.js";
 import Bug from "./models/Bug.js";
 import { hashValue } from "./utils/password.js";
+import { getGridFSBucket } from "./utils/gridfs.js";
 
 
 dotenv.config();
@@ -22,6 +23,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.get("/uploads/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^[0-9a-f]{24}$/i.test(id)) {
+    return res.status(404).json({ message: "Screenshot not found" });
+  }
+  try {
+    const bucket = getGridFSBucket();
+    const file = await bucket
+      .find({ _id: new mongoose.Types.ObjectId(id) })
+      .next();
+    if (!file) {
+      return res.status(404).json({ message: "Screenshot not found" });
+    }
+    res.set("Content-Type", file.contentType || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    const stream = bucket.openDownloadStream(file._id);
+    stream.on("error", () =>
+      res.status(404).json({ message: "Screenshot not found" })
+    );
+    stream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 app.get("/", (req, res) => res.json({ message: "Bug Tracker API" }));
 

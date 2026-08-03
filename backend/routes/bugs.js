@@ -5,6 +5,11 @@ import Action from "../models/Action.js";
 import { upload } from "../middleware/upload.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { parseImportFile } from "../utils/importParser.js";
+import {
+  saveScreenshot,
+  deleteScreenshot,
+  isGridFsId,
+} from "../utils/gridfs.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -18,6 +23,21 @@ const removeFile = (screenshotPath) => {
   const filePath = path.join(uploadDir, path.basename(screenshotPath));
   fs.unlink(filePath, () => { });
 };
+
+const screenshotId = (value) => String(value || "").split("/").pop();
+
+const removeScreenshot = (value) => {
+  const id = screenshotId(value);
+  if (isGridFsId(id)) return deleteScreenshot(id);
+  removeFile(value);
+  return Promise.resolve();
+};
+
+const storeScreenshot = (file) =>
+  saveScreenshot(file.buffer, {
+    filename: file.originalname,
+    contentType: file.mimetype,
+  }).then((id) => `/uploads/${id}`);
 
 const actorName = (user) => user.name || user.username || "Unknown";
 
@@ -104,7 +124,7 @@ router.post("/import", requireAuth, importUpload.single("file"), async (req, res
 router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
   try {
     const { title, role, description } = req.body;
-    const screenshot = req.file ? `/uploads/${req.file.filename}` : null;
+    const screenshot = req.file ? await storeScreenshot(req.file) : null;
     const isAdmin = req.user.role === "admin";
     const submittedBy = (req.body.reportedBy || "").trim();
     const reportedBy = isAdmin
@@ -182,20 +202,21 @@ router.put("/:id", requireAuth, upload.single("screenshot"), async (req, res) =>
     }
 
     if (req.file) {
+      const newPath = await storeScreenshot(req.file);
       changes.push({
         field: "screenshot",
         oldValue: bug.screenshot,
-        newValue: `/uploads/${req.file.filename}`,
+        newValue: newPath,
       });
-      removeFile(bug.screenshot);
-      bug.screenshot = `/uploads/${req.file.filename}`;
+      await removeScreenshot(bug.screenshot);
+      bug.screenshot = newPath;
     } else if (req.body.removeScreenshot === "true" && bug.screenshot) {
       changes.push({
         field: "screenshot",
         oldValue: bug.screenshot,
         newValue: null,
       });
-      removeFile(bug.screenshot);
+      await removeScreenshot(bug.screenshot);
       bug.screenshot = null;
     }
 
@@ -241,7 +262,7 @@ router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
       bugTitle: bug.title,
     });
 
-    removeFile(bug.screenshot);
+    await removeScreenshot(bug.screenshot);
 
     await bug.deleteOne();
     res.json({ message: "Bug deleted" });

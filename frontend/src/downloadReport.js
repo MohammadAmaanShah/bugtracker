@@ -12,6 +12,7 @@ import {
   WidthType,
   AlignmentType,
 } from "docx";
+import { mediaUrl } from "./api.js";
 
 const statusLabel = (value) => {
   if (value === "in_progress") return "In Progress";
@@ -56,7 +57,7 @@ function saveBlob(blob, fileName) {
 async function enrichWithImages(bugs) {
   return Promise.all(
     bugs.map(async (bug) => {
-      const dataUri = bug.screenshot ? await urlToDataUri(bug.screenshot) : null;
+      const dataUri = bug.screenshot ? await urlToDataUri(mediaUrl(bug.screenshot)) : null;
       return { ...bug, imageDataUri: dataUri };
     })
   );
@@ -153,7 +154,52 @@ export async function downloadDocx(bugs) {
 
 // ---------- PowerPoint (.pptx) ----------
 
+const REPORT_COLUMNS = [
+  { label: "Reported by", key: "reportedBy" },
+  { label: "In Role", key: "role" },
+  { label: "Title", key: "title" },
+  { label: "Description", key: "description" },
+  { label: "Screenshot", key: "screenshot" },
+  { label: "Status", key: "status" },
+];
+
+const PDF_COLUMN_PARTS = [1728, 1440, 2016, 2880, 2160, 1440];
+
+function pdfColumnWidths(maxWidth) {
+  const total = PDF_COLUMN_PARTS.reduce((a, b) => a + b, 0);
+  return PDF_COLUMN_PARTS.map((p) => (maxWidth * p) / total);
+}
+
+function getImageSize(dataUri) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () =>
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = dataUri;
+  });
+}
+
+function estPptxRowHeight(bug, fontSize) {
+  const lineH = (fontSize / 72) * 1.3;
+  const charW = (fontSize / 72) * 0.55;
+  const est = (width, value) =>
+    Math.max(1, Math.ceil(String(value || "—").length / Math.floor(width / charW))) * lineH;
+  return (
+    0.12 +
+    Math.max(
+      0.6,
+      est(1.83, bug.reportedBy),
+      est(1.52, bug.role),
+      est(2.13, bug.title),
+      est(3.05, bug.description),
+      est(1.52, statusLabel(bug.status))
+    )
+  );
+}
+
 async function buildPptx(bugs) {
+  const rows = await enrichWithImages(bugs);
   const pptx = new pptxgen();
   pptx.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 });
   pptx.layout = "WIDE";
@@ -175,88 +221,166 @@ async function buildPptx(bugs) {
     { x: 0.6, y: 3.9, w: 12.1, h: 0.6, fontSize: 18, color: "6F6350", align: "center" }
   );
 
-  for (const bug of bugs) {
+  const colW = [1.83, 1.52, 2.13, 3.05, 2.29, 1.52];
+  const fontSize = 12;
+
+  const headerRow = REPORT_COLUMNS.map((col) => ({
+    text: col.label,
+    options: { bold: true, color: "FFFFFF", fill: { color: "37472F" }, fontSize },
+  }));
+
+  const bodyRow = (bug) =>
+    REPORT_COLUMNS.map((col, i) => {
+      if (col.key === "screenshot") {
+        return bug.imageDataUri
+          ? {
+              image: {
+                data: bug.imageDataUri,
+                x: 0.02,
+                y: 0.02,
+                w: colW[i] - 0.09,
+                h: 1.1,
+                sizing: { type: "contain", w: colW[i] - 0.09, h: 1.1 },
+              },
+            }
+          : { text: "—", options: { color: "3A2A06", fontSize } };
+      }
+      const text =
+        col.key === "status" ? statusLabel(bug.status) : bug[col.key] || "—";
+      return {
+        text,
+        options: {
+          color: "3A2A06",
+          fontSize,
+          bold: col.key === "title",
+        },
+      };
+    });
+
+  const availableHeight = 6.5;
+  const pages = [];
+  let pageRows = [];
+  let used = 0;
+  for (const bug of rows) {
+    const h = estPptxRowHeight(bug, fontSize);
+    if (pageRows.length && used + h > availableHeight) {
+      pages.push(pageRows);
+      pageRows = [bug];
+      used = h;
+    } else {
+      pageRows.push(bug);
+      used += h;
+    }
+  }
+  if (pageRows.length) pages.push(pageRows);
+
+  for (const chunk of pages) {
     const slide = pptx.addSlide();
     slide.background = { color: "FFFFFF" };
-
-    slide.addText(bug.title || "Untitled", {
+    slide.addTable([headerRow, ...chunk.map(bodyRow)], {
       x: 0.5,
-      y: 0.35,
-      w: 12.3,
-      h: 0.8,
-      fontSize: 28,
-      bold: true,
-      color: "37472F",
+      y: 0.25,
+      w: 12.33,
+      colW,
+      border: { type: "solid", pt: 1, color: "D9D2C5" },
+      autoPage: false,
     });
-
-    slide.addText(
-      [
-        { text: "Reported by: ", options: { bold: true, color: "6F6350" } },
-        { text: bug.reportedBy || "—", options: { color: "3A2A06" } },
-      ],
-      { x: 0.5, y: 1.2, w: 4, h: 0.4, fontSize: 14 }
-    );
-    slide.addText(
-      [
-        { text: "In Role: ", options: { bold: true, color: "6F6350" } },
-        { text: bug.role || "—", options: { color: "3A2A06" } },
-      ],
-      { x: 4.7, y: 1.2, w: 4, h: 0.4, fontSize: 14 }
-    );
-    slide.addText(
-      [
-        { text: "Status: ", options: { bold: true, color: "6F6350" } },
-        { text: statusLabel(bug.status), options: { color: "3A2A06" } },
-      ],
-      { x: 8.9, y: 1.2, w: 3.9, h: 0.4, fontSize: 14 }
-    );
-
-    slide.addText(bug.description || "No description", {
-      x: 0.5,
-      y: 1.9,
-      w: bug.imageDataUri ? 7.3 : 12.3,
-      h: 4.9,
-      fontSize: 14,
-      color: "3A2A06",
-      valign: "top",
-    });
-
-    if (bug.imageDataUri) {
-      slide.addImage({
-        data: bug.imageDataUri,
-        x: 8.1,
-        y: 1.9,
-        w: 4.7,
-        h: 4.9,
-        sizing: { type: "contain", w: 4.7, h: 4.9 },
-      });
-    }
   }
 
   await pptx.writeFile({ fileName: `bug-report-${Date.now()}.pptx` });
 }
 
-function getImageSize(dataUri) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () =>
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => resolve(null);
-    img.src = dataUri;
-  });
-}
+// ---------- PDF (.pdf) ----------
 
-function writeWrapped(doc, text, x, y, maxWidth, fontSize, lineHeight, options = {}) {
-  const lines = doc.splitTextToSize(text, maxWidth);
-  for (const line of lines) {
-    if (y + lineHeight > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      y = 40;
+async function buildPdfTable(doc, rows, margin, maxWidth, pageHeight, bottomMargin) {
+  const cols = REPORT_COLUMNS;
+  const widths = pdfColumnWidths(maxWidth);
+  const fontSize = 9;
+  const lineHeight = 12;
+  const padding = 4;
+  const headerHeight = 22;
+
+  const cellLines = (bug, col, w) => {
+    const text = col.key === "status" ? statusLabel(bug.status) : bug[col.key] || "—";
+    return doc.splitTextToSize(String(text), w - padding * 2);
+  };
+
+  const fitScreenshot = async (dataUri, w) => {
+    const size = await getImageSize(dataUri);
+    if (!size) return null;
+    const maxW = w - padding * 2;
+    const maxH = 70;
+    const ratio = Math.min(maxW / size.width, maxH / size.height);
+    return {
+      w: size.width * ratio,
+      h: size.height * ratio,
+      format: dataUri.includes("image/png") ? "PNG" : "JPEG",
+    };
+  };
+
+  const drawHeader = (y) => {
+    let x = margin;
+    doc.setFillColor(55, 71, 47);
+    for (let i = 0; i < cols.length; i++) {
+      doc.rect(x, y, widths[i], headerHeight, "FD");
+      x += widths[i];
     }
+    x = margin;
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(fontSize);
-    doc.text(line, x, y, options);
-    y += lineHeight;
+    doc.setTextColor(255, 255, 255);
+    for (let i = 0; i < cols.length; i++) {
+      doc.text(cols[i].label, x + padding, y + padding + 4);
+      x += widths[i];
+    }
+    return y + headerHeight;
+  };
+
+  let y = drawHeader(margin);
+
+  for (const bug of rows) {
+    const lines = cols.map((c, i) => cellLines(bug, c, widths[i]));
+    const image = bug.imageDataUri ? await fitScreenshot(bug.imageDataUri, widths[4]) : null;
+
+    let rowHeight = padding * 2 + lineHeight;
+    for (const cell of lines) {
+      rowHeight = Math.max(rowHeight, padding * 2 + cell.length * lineHeight);
+    }
+    if (image) rowHeight = Math.max(rowHeight, image.h + padding * 2);
+
+    if (y + rowHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      y = drawHeader(margin);
+    }
+
+    let x = margin;
+    doc.setFontSize(fontSize);
+    for (let i = 0; i < cols.length; i++) {
+      if (cols[i].key === "screenshot" && image) {
+        doc.addImage(bug.imageDataUri, image.format, x + padding, y + padding, image.w, image.h);
+      } else {
+        doc.setFont("helvetica", cols[i].key === "title" ? "bold" : "normal");
+        doc.setTextColor(58, 42, 6);
+        let ty = y + padding + 8;
+        for (const line of lines[i]) {
+          doc.text(line, x + padding, ty);
+          ty += lineHeight;
+        }
+      }
+      x += widths[i];
+    }
+
+    x = margin;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    for (let i = 0; i < cols.length; i++) {
+      doc.rect(x, y, widths[i], rowHeight);
+      x += widths[i];
+    }
+
+    y += rowHeight;
   }
+
   return y;
 }
 
@@ -264,9 +388,9 @@ export async function downloadPdf(bugs) {
   const rows = await enrichWithImages(bugs);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
   const maxWidth = pageWidth - margin * 2;
-  const label = (name, value) => `${name}: ${value || "—"}`;
 
   let y = margin;
 
@@ -287,47 +411,7 @@ export async function downloadPdf(bugs) {
   );
   y += 36;
 
-  for (const bug of rows) {
-    if (y + 40 > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      y = margin;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(55, 71, 47);
-    y = writeWrapped(doc, label("Title", bug.title), margin, y, maxWidth, 14, 20);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.setTextColor(58, 42, 6);
-    y = writeWrapped(doc, label("In Role", bug.role), margin, y, maxWidth, 11, 16);
-    y = writeWrapped(doc, label("Reported by", bug.reportedBy), margin, y, maxWidth, 11, 16);
-    if (bug.assignedTo) {
-      y = writeWrapped(doc, label("Assign to", bug.assignedTo), margin, y, maxWidth, 11, 16);
-    }
-    y = writeWrapped(doc, label("Status", statusLabel(bug.status)), margin, y, maxWidth, 11, 16);
-    y = writeWrapped(doc, label("Description", bug.description), margin, y, maxWidth, 11, 16);
-
-    if (bug.imageDataUri) {
-      const size = await getImageSize(bug.imageDataUri);
-      if (size) {
-        const maxH = 160;
-        const ratio = Math.min(maxW / size.width, maxH / size.height);
-        const w = Math.max(1, size.width * ratio);
-        const h = Math.max(1, size.height * ratio);
-        if (y + h + 10 > doc.internal.pageSize.getHeight() - 40) {
-          doc.addPage();
-          y = margin;
-        }
-        const format = bug.imageDataUri.includes("image/png") ? "PNG" : "JPEG";
-        doc.addImage(bug.imageDataUri, format, margin, y, w, h);
-        y += h + 14;
-      }
-    }
-
-    y += 22;
-  }
+  await buildPdfTable(doc, rows, margin, maxWidth, pageHeight, margin);
 
   doc.save(`bug-report-${Date.now()}.pdf`);
 }

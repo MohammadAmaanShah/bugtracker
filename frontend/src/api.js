@@ -8,7 +8,7 @@ export function mediaUrl(path) {
   return `${API_ORIGIN}${path}`;
 }
 
-
+                                                              
 
 const TOKEN_KEY = "bugtracker.token";
 

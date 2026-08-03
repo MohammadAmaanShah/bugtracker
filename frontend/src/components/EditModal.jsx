@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { updateBug, fetchVerifiedUsers } from "../api.js";
+import { updateBug, fetchVerifiedUsers, mediaUrl } from "../api.js";
 
 export const STATUSES = [
   { value: "in_progress", label: "In Progress" },
@@ -66,7 +66,7 @@ export default function EditModal({ bug, userName, isAdmin, onClose, onSaved }) 
     }
   }
 
-  const currentImage = file ? preview : bug.screenshot;
+  const currentImage = file ? preview : mediaUrl(bug.screenshot);
 
   return (
     <div className="modal-overlay" onClick={onClose}>

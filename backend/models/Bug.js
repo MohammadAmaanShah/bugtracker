@@ -25,6 +25,11 @@ const editEntrySchema = new mongoose.Schema(
 
 const bugSchema = new mongoose.Schema(
   {
+    number: {
+      type: Number,
+      default: null,
+      index: true,
+    },
     title: {
       type: String,
       required: [true, "Title is required"],

@@ -5,6 +5,7 @@ import Action from "../models/Action.js";
 import { upload } from "../middleware/upload.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { parseImportFile } from "../utils/importParser.js";
+import { nextBugNumber } from "../utils/bugCounter.js";
 import {
   saveScreenshot,
   deleteScreenshot,
@@ -94,9 +95,14 @@ router.post("/import", requireAuth, importUpload.single("file"), async (req, res
       });
     }
 
+    const numbers = [];
+    for (let i = 0; i < bugs.length; i += 1) {
+      numbers.push(await nextBugNumber());
+    }
+
     const created = await Bug.create(
       await Promise.all(
-        bugs.map(async (b) => {
+        bugs.map(async (b, i) => {
           const { screenshotDataUri, ...rest } = b;
           let screenshot = null;
           if (screenshotDataUri) {
@@ -111,6 +117,7 @@ router.post("/import", requireAuth, importUpload.single("file"), async (req, res
           }
           return {
             ...rest,
+            number: numbers[i],
             screenshot,
             reportedBy:
               req.user.role === "admin"
@@ -150,6 +157,7 @@ router.post("/", requireAuth, upload.single("screenshot"), async (req, res) => {
     const assignedTo = (req.body.assignedTo || "").trim();
 
     const bug = await Bug.create({
+      number: await nextBugNumber(),
       title,
       role,
       description,

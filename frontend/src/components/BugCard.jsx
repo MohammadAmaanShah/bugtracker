@@ -70,7 +70,10 @@ export default function BugCard({ bug, userName, isAdmin, onDeleted, onUpdated }
   return (
     <article className="card bug-card">
       <div className="bug-card-head">
-        <span className="role-tag">(inRole) {bug.role}</span>
+        <div className="bug-card-head-left">
+          <span className="role-tag">(inRole) {bug.role}</span>
+          {bug.number ? <span className="bug-num">Bug #{bug.number}</span> : null}
+        </div>
         <span className={`status-badge status-${bug.status}`}>
           {statusLabel(bug.status)}
         </span>

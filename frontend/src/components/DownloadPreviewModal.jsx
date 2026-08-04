@@ -26,7 +26,10 @@ export default function DownloadPreviewModal({ format, bugs, onCancel, onDownloa
             {bugs.map((bug) => (
               <div className="preview-row" key={bug._id}>
                 <div className="preview-row-main">
-                  <strong>{bug.title || "Untitled"}</strong>
+                  <strong>
+                    {bug.number ? `Bug #${bug.number}: ` : ""}
+                    {bug.title || "Untitled"}
+                  </strong>
                   <span className="preview-role">{bug.role || "—"}</span>
                 </div>
                 <span className="preview-status">{statusLabel(bug.status)}</span>

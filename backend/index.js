@@ -13,6 +13,7 @@ import User from "./models/User.js";
 import Bug from "./models/Bug.js";
 import { hashValue } from "./utils/password.js";
 import { getGridFSBucket } from "./utils/gridfs.js";
+import { getBugCounter, setBugCounter } from "./utils/bugCounter.js";
 
 
 dotenv.config();
@@ -119,6 +120,18 @@ async function migrateLegacyData() {
     if (res.modifiedCount > 0) {
       console.log(`Migrated ${res.modifiedCount} bug(s) status '${oldStatus}' -> '${newStatus}'`);
     }
+  }
+
+  const missing = await Bug.find({ number: null }).sort({ createdAt: 1, _id: 1 });
+  if (missing.length > 0) {
+    let seq = await getBugCounter();
+    for (const bug of missing) {
+      seq += 1;
+      bug.number = seq;
+      await bug.save();
+    }
+    await setBugCounter(seq);
+    console.log(`Assigned bug numbers to ${missing.length} existing bug(s)`);
   }
 }
 

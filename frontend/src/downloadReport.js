@@ -20,6 +20,9 @@ const statusLabel = (value) => {
   return value || "—";
 };
 
+const titled = (bug) =>
+  bug.number ? `#${bug.number} ${bug.title || "—"}` : bug.title || "—";
+
 async function urlToDataUri(url) {
   try {
     const res = await fetch(url);
@@ -88,7 +91,7 @@ function buildDocxTable(rows) {
         children: [
           new TableCell({ children: [new Paragraph({ text: bug.reportedBy || "—" })] }),
           new TableCell({ children: [new Paragraph({ text: bug.role || "—" })] }),
-          new TableCell({ children: [new Paragraph({ text: bug.title || "—" })] }),
+          new TableCell({ children: [new Paragraph({ text: titled(bug) })] }),
           new TableCell({
             children: [new Paragraph({ text: bug.description || "—" })],
           }),
@@ -247,8 +250,10 @@ async function buildPptx(bugs) {
       }
       const text =
         col.key === "status" ? statusLabel(bug.status) : bug[col.key] || "—";
+      const display =
+        col.key === "title" && bug.number ? `#${bug.number} ${text}` : text;
       return {
-        text,
+        text: display,
         options: {
           color: "3A2A06",
           fontSize,
@@ -301,7 +306,12 @@ async function buildPdfTable(doc, rows, margin, maxWidth, pageHeight, bottomMarg
   const headerHeight = 22;
 
   const cellLines = (bug, col, w) => {
-    const text = col.key === "status" ? statusLabel(bug.status) : bug[col.key] || "—";
+    const text =
+      col.key === "status"
+        ? statusLabel(bug.status)
+        : col.key === "title" && bug.number
+        ? `#${bug.number} ${bug[col.key] || "—"}`
+        : bug[col.key] || "—";
     return doc.splitTextToSize(String(text), w - padding * 2);
   };
 

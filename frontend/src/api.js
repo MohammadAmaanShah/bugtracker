@@ -2,13 +2,15 @@ export const API_URL = "https://bugtracker-3kyf.onrender.com/api";
 
 export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
+
+
 export function mediaUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
   return `${API_ORIGIN}${path}`;
 }
 
-                                                              
+
 
 const TOKEN_KEY = "bugtracker.token";
 

@@ -95,13 +95,30 @@ router.post("/import", requireAuth, importUpload.single("file"), async (req, res
     }
 
     const created = await Bug.create(
-      bugs.map((b) => ({
-        ...b,
-        reportedBy:
-          req.user.role === "admin"
-            ? b.reportedBy || actorName(req.user)
-            : actorName(req.user),
-      }))
+      await Promise.all(
+        bugs.map(async (b) => {
+          const { screenshotDataUri, ...rest } = b;
+          let screenshot = null;
+          if (screenshotDataUri) {
+            const base64 = String(screenshotDataUri).split(",")[1];
+            if (base64) {
+              const id = await saveScreenshot(
+                Buffer.from(base64, "base64"),
+                { filename: "import-screenshot.png", contentType: "image/png" }
+              );
+              screenshot = `/uploads/${id}`;
+            }
+          }
+          return {
+            ...rest,
+            screenshot,
+            reportedBy:
+              req.user.role === "admin"
+                ? rest.reportedBy || actorName(req.user)
+                : actorName(req.user),
+          };
+        })
+      )
     );
     const actor = actorName(req.user);
 

@@ -2,6 +2,8 @@ import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { PDFParse } from "pdf-parse";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { extractPdfImages } from "./pdfImages.js";
 import path from "path";
 
 const HEADER_ALIASES = {
@@ -298,6 +300,242 @@ const emptyBug = () => ({
   status: "",
 });
 
+const titleCase = (value) => {
+  const v = String(value || "").trim();
+  if (!v) return v;
+  return v
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const isModuleLine = (line) => {
+  const v = String(line || "").trim();
+  if (!v || v.length > 24) return false;
+  if (/\s/.test(v)) return false;
+  return /^[A-Za-z][A-Za-z0-9&.'\-]*$/.test(v) && !v.endsWith(".");
+};
+
+const detectModuleFormat = (lines) => {
+  if (lines.some((line) => PDF_HAS_LABEL_RE.test(line))) return false;
+  const meaningful = lines.filter(
+    (line) => !PDF_NOISE_RE.some((rx) => rx.test(line))
+  );
+  if (meaningful.length === 0) return false;
+  let moduleCount = 0;
+  for (let i = 0; i < meaningful.length - 1; i += 1) {
+    const line = meaningful[i];
+    const next = meaningful[i + 1];
+    if (isModuleLine(line) && next.split(/\s+/).length >= 2) {
+      moduleCount += 1;
+    }
+  }
+  return moduleCount >= 3;
+};
+
+const parseModulePdf = (lines) => {
+  const bugs = [];
+  const skipped = [];
+  let current = null;
+  let currentPage = 1;
+  let entryCount = 0;
+
+  const flush = () => {
+    if (!current) return;
+    entryCount += 1;
+    const row = { ...current, status: mapStatus(current.status) };
+    const { bug, reason } = mapRow(row);
+    if (bug) {
+      bug.page = current.page;
+      bugs.push(bug);
+    } else {
+      skipped.push({ row: entryCount, reason });
+    }
+    current = null;
+  };
+
+  for (const line of lines) {
+    if (PDF_NOISE_RE.some((rx) => rx.test(line))) {
+      const fm = line.match(/^--\s*(\d+)\s+of\s+\d+\s*--$/i);
+      if (fm) currentPage = Number(fm[1]) + 1;
+      continue;
+    }
+
+    if (isModuleLine(line)) {
+      if (!current) {
+        current = { ...emptyBug(), role: titleCase(line), page: currentPage };
+      } else if (current.title && current.description) {
+        flush();
+        current = { ...emptyBug(), role: titleCase(line), page: currentPage };
+      } else {
+        current.description = current.description
+          ? `${current.description}\n${line}`
+          : line;
+      }
+      continue;
+    }
+
+    if (!current) continue;
+
+    if (!current.title) current.title = line;
+    else
+      current.description = current.description
+        ? `${current.description}\n${line}`
+        : line;
+  }
+  flush();
+  return { bugs, skipped };
+};
+
+const TABLE_COLUMN_LABELS = ["Reported by", "In Role", "Title", "Description", "Screenshot", "Status"];
+
+const detectTablePdf = (lines) =>
+  lines.some(
+    (line) =>
+      line.includes("Reported by") &&
+      line.includes("In Role") &&
+      line.includes("Screenshot") &&
+      line.includes("Status")
+  );
+
+const parseTablePdf = async (buffer) => {
+  const doc = await pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+  }).promise;
+
+  const pages = [];
+  for (let p = 1; p <= doc.numPages; p += 1) {
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    pages.push(
+      tc.items
+        .filter((it) => it && it.str && it.str.trim())
+        .map((it) => ({
+          x: it.transform[4],
+          y: it.transform[5],
+          str: it.str,
+        }))
+    );
+  }
+
+  const bugs = [];
+  const skipped = [];
+  let entryCount = 0;
+
+  for (let p = 0; p < pages.length; p += 1) {
+    const items = pages[p];
+    const header = items.find(
+      (it) =>
+        it.x >= 0 &&
+        it.x < 200 &&
+        /reported\s*by/i.test(it.str) &&
+        items.some(
+          (o) =>
+            Math.abs(o.y - it.y) < 3 && /in\s*role/i.test(o.str)
+        )
+    );
+    if (!header) continue;
+
+    const headerY = header.y;
+    const headerRow = items.filter((it) => Math.abs(it.y - headerY) < 3);
+    const cols = [];
+    for (const label of TABLE_COLUMN_LABELS) {
+      const found = headerRow.find(
+        (it) => it.str.trim().toLowerCase() === label.toLowerCase()
+      );
+      cols.push(found ? found.x : null);
+    }
+    const colStarts = cols.filter((x) => x !== null);
+    if (colStarts.length < 3) continue;
+    const colEnd = colStarts[colStarts.length - 1] + 100;
+
+    const body = items
+      .filter((it) => it.y < headerY - 3)
+      .sort((a, b) => b.y - a.y || a.x - b.x);
+
+    const textLines = [];
+    for (const it of body) {
+      const last = textLines[textLines.length - 1];
+      if (last && Math.abs(last.y - it.y) <= 2) last.items.push(it);
+      else textLines.push({ y: it.y, items: [it] });
+    }
+
+    const rows = [];
+    let currentRow = null;
+    for (const tl of textLines) {
+      if (currentRow && currentRow.y - tl.y <= 16) {
+        currentRow.lines.push(tl);
+      } else {
+        currentRow = { y: tl.y, lines: [tl] };
+        rows.push(currentRow);
+      }
+    }
+
+    for (const row of rows) {
+      const rowTop = row.lines[0].y;
+      const cells = {};
+      for (const tl of row.lines) {
+        for (const it of tl.items) {
+          let ci = -1;
+          for (let i = 0; i < cols.length; i += 1) {
+            const s = cols[i];
+            if (s === null) continue;
+            const e = cols[i + 1] !== undefined && cols[i + 1] !== null
+              ? cols[i + 1]
+              : colEnd;
+            if (it.x >= s - 1 && it.x < e) {
+              ci = i;
+              break;
+            }
+          }
+          if (ci < 0) continue;
+          const key = TABLE_COLUMN_LABELS[ci];
+          cells[key] = cells[key]
+            ? `${cells[key]}${it.str}`
+            : it.str;
+        }
+      }
+      entryCount += 1;
+      const rowBug = {
+        title: (cells["Title"] || "").trim(),
+        role: (cells["In Role"] || "").trim(),
+        description: (cells["Description"] || "").trim(),
+        reportedBy: (cells["Reported by"] || "").trim(),
+        assignedTo: "",
+        status: mapStatus(cells["Status"]),
+      };
+      const { bug, reason } = mapRow(rowBug);
+      if (bug) {
+        bug.page = p + 1;
+        bug.rowTop = rowTop;
+        bugs.push(bug);
+      } else {
+        skipped.push({ row: entryCount, reason });
+      }
+    }
+  }
+
+  return { bugs, skipped };
+};
+
+const assignScreenshots = async (buffer, bugs) => {
+  if (!bugs.length) return;
+  const images = await extractPdfImages(buffer);
+  const byPage = new Map();
+  for (const img of images) {
+    if (!byPage.has(img.page)) byPage.set(img.page, []);
+    byPage.get(img.page).push(img);
+  }
+  for (const imgList of byPage.values()) {
+    imgList.sort((a, b) => a.top - b.top);
+  }
+  for (const bug of bugs) {
+    const list = byPage.get(bug.page);
+    if (!list || !list.length) continue;
+    bug.screenshotDataUri = list.shift().dataUri;
+  }
+};
+
 const parsePdf = async (buffer) => {
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   const result = await parser.getText();
@@ -306,8 +544,23 @@ const parsePdf = async (buffer) => {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const labeled = lines.some((line) => PDF_HAS_LABEL_RE.test(line));
-  return labeled ? parseLabeledPdf(lines) : parseHeuristicPdf(lines);
+  let resultBugs;
+  if (detectTablePdf(lines)) {
+    resultBugs = await parseTablePdf(buffer);
+  } else if (lines.some((line) => PDF_HAS_LABEL_RE.test(line))) {
+    resultBugs = parseLabeledPdf(lines);
+  } else if (detectModuleFormat(lines)) {
+    resultBugs = parseModulePdf(lines);
+  } else {
+    resultBugs = parseHeuristicPdf(lines);
+  }
+
+  await assignScreenshots(buffer, resultBugs.bugs);
+  for (const bug of resultBugs.bugs) {
+    delete bug.page;
+    delete bug.rowTop;
+  }
+  return resultBugs;
 };
 
 const parseLabeledPdf = (lines) => {
